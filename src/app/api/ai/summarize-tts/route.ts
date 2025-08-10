@@ -342,7 +342,24 @@ async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, cl
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
-  const voice = (clientVoice && typeof clientVoice === "string" ? clientVoice : null) || (lang === "fr" ? "alloy" : "alloy");
+  const allowedVoices = new Set([
+    "alloy",
+    "echo",
+    "fable",
+    "onyx",
+    "nova",
+    "shimmer",
+    "coral",
+    "verse",
+    "ballad",
+    "ash",
+    "sage",
+  ]);
+  const resolveVoice = (v?: string): string => {
+    if (v && allowedVoices.has(v)) return v;
+    return "alloy";
+  };
+  const voice = resolveVoice(typeof clientVoice === "string" ? clientVoice : undefined);
   const res = await fetch("https://api.openai.com/v1/audio/speech", {
     method: "POST",
     headers: {

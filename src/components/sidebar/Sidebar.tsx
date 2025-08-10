@@ -691,9 +691,16 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 }}
               >
                 <option value="alloy">Alloy</option>
-                <option value="aria">Aria</option>
-                <option value="verse">Verse</option>
+                <option value="echo">Echo</option>
+                <option value="fable">Fable</option>
+                <option value="onyx">Onyx</option>
                 <option value="nova">Nova</option>
+                <option value="shimmer">Shimmer</option>
+                <option value="coral">Coral</option>
+                <option value="verse">Verse</option>
+                <option value="ballad">Ballad</option>
+                <option value="ash">Ash</option>
+                <option value="sage">Sage</option>
               </select>
               <p className="text-xs text-muted-foreground">Choisissez la voix utilisée pour la lecture des résumés.</p>
             </div>
