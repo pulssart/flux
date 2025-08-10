@@ -1,22 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export const runtime = "edge";
 
 function decodeBase64Url(input: string): string {
   try {
-    // Convert base64url to base64
+    // Convert base64url to base64 and add padding
     const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
-    // Atob is not available on edge runtime reliably; use Buffer
-    const buf = Buffer.from(base64, "base64");
-    return buf.toString("utf-8");
+    const pad = base64.length % 4 ? 4 - (base64.length % 4) : 0;
+    const b64 = base64 + "=".repeat(pad);
+    // Edge runtime exposes atob/btoa
+    const binary = atob(b64);
+    // Convert binary string to UTF-8
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const decoder = new TextDecoder("utf-8");
+    return decoder.decode(bytes);
   } catch {
     return "";
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: { key: string } }) {
+export async function GET(req: Request) {
   try {
-    const key = params.key || "";
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const key = pathParts[pathParts.length - 1] || "";
     if (!key) return NextResponse.json({ error: "Missing key" }, { status: 400 });
     const decoded = decodeBase64Url(key);
     if (!decoded) return NextResponse.json({ error: "Invalid key" }, { status: 400 });

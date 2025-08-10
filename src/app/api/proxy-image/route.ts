@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     const res = await fetch(target.toString(), {
       signal: controller.signal,
       headers: { "user-agent": "FluxRSS/1.0" },
-      // Allow CDN/proxy caching
-      cache: "force-cache",
+      // Ne pas forcer le cache interne pour éviter collisions; le CDN se charge du cache
+      cache: "no-store",
     }).catch(() => null);
     clearTimeout(timer);
     if (!res || !res.ok) {
@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        // Cache côté navigateur et edge (1 jour) + stale-while-revalidate
-        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+        // Cache navigateur/CDN (1 jour) + SWR, immuable sur cette URL précise
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable",
       },
     });
   } catch (e) {
