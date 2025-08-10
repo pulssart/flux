@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     const feeds: string[] = Array.isArray(body?.feeds) ? body.feeds : [];
     const lang: string = typeof body?.lang === "string" ? body.lang : "fr";
     const apiKey: string | undefined = typeof body?.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : (process.env.OPENAI_API_KEY || undefined);
+    const fast: boolean = body?.fast === true;
     if (!feeds.length) {
       return NextResponse.json({ html: "<p>No feeds selected.</p>" }, { status: 200 });
     }
@@ -20,10 +21,10 @@ export async function POST(req: NextRequest) {
 
     // Parser rapide sans enrichissement OG (plus performant)
     // Mode rapide pour éviter les timeouts sur l'hébergement (fonction serverless ~10s)
-    const parser = new Parser({ timeout: 2000 });
-    const maxFeeds = Math.min(8, feeds.length);
-    const chunkSize = 2;
-    const timeBudgetMs = 6000;
+    const parser = new Parser({ timeout: fast ? 1500 : 2000 });
+    const maxFeeds = Math.min(fast ? 6 : 8, feeds.length);
+    const chunkSize = fast ? 2 : 2;
+    const timeBudgetMs = fast ? 4000 : 6000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     // Compléter les images manquantes via OG (quota limité)
     const toComplete = limited.filter((x) => !x.image && x.link).slice(0, MAX_ITEMS);
-    if (Date.now() - startedAt < timeBudgetMs - 1500) {
+    if (!fast && Date.now() - startedAt < timeBudgetMs - 1500) {
       await Promise.allSettled(
         toComplete.map(async (it) => {
           try {
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
     let perItemSummaries: string[] = [];
     const timeSpentMs = Date.now() - startedAt;
     const timeLeftMs = timeBudgetMs - timeSpentMs;
-    if (apiKey && timeLeftMs > 2000) {
+    if (!fast && apiKey && timeLeftMs > 2000) {
       try {
         perItemSummaries = await summarizeItemsWithAI(
           limited.map((x) => ({ title: x.title, snippet: x.contentSnippet })),
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
     });
     // Option: générer un chapeau éditorial dans la langue, si clé API dispo
     let intro = "";
-    if (apiKey && (timeBudgetMs - (Date.now() - startedAt) > 1500)) {
+    if (!fast && apiKey && (timeBudgetMs - (Date.now() - startedAt) > 1500)) {
       try {
         const prompt = lang === "fr"
           ? "Rédige un court chapeau (2 à 4 phrases) en français résumant les grands thèmes des actualités listées ci-dessous."
