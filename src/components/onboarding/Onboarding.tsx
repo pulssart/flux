@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useLang } from "@/lib/i18n";
+import { useLang, t } from "@/lib/i18n";
 
 export function Onboarding() {
   const [lang] = useLang();
@@ -34,35 +34,25 @@ export function Onboarding() {
 
   const slides: Array<{ title: string; desc: string; videoEmbed?: string }> = [
     {
-      title: lang === "fr" ? "Bienvenue dans Flux" : "Welcome to Flux",
-      desc: lang === "fr"
-        ? "Flux est un lecteur RSS minimaliste. Ajoute tes sources, organise-les et parcours l’actualité au quotidien."
-        : "Flux is a minimalist RSS reader. Add your sources, organize them, and browse daily news.",
+      title: t(lang, "onboardingWelcomeTitle"),
+      desc: t(lang, "onboardingWelcomeDesc"),
       videoEmbed: "https://www.youtube-nocookie.com/embed/3wlL_2347yY?rel=0&modestbranding=1&playsinline=1",
     },
     {
-      title: lang === "fr" ? "Ajouter et organiser" : "Add and organize",
-      desc: lang === "fr"
-        ? "Clique sur + pour ajouter un flux, crée des dossiers et réorganise en glissant-déposant."
-        : "Click + to add feeds, create folders, and reorder with drag and drop.",
+      title: t(lang, "onboardingAddOrganizeTitle"),
+      desc: t(lang, "onboardingAddOrganizeDesc"),
     },
     {
-      title: lang === "fr" ? "Résumé audio & IA" : "Audio & AI",
-      desc: lang === "fr"
-        ? "Lis un résumé audio des articles ou l’actualité du jour. Renseigne ta clé OpenAI dans Réglages pour activer l’IA."
-        : "Listen to audio summaries or today’s digest. Add your OpenAI key in Settings to enable AI.",
+      title: t(lang, "onboardingAudioAITitle"),
+      desc: t(lang, "onboardingAudioAIDesc"),
     },
     {
-      title: lang === "fr" ? "Résumé du jour" : "Today resume",
-      desc: lang === "fr"
-        ? "Dans Aperçu → Résumé du jour, génère une synthèse éditoriale des dernières 24h (images, titres, liens)."
-        : "In Overview → Today resume, generate an editorial summary of the last 24h (images, titles, links).",
+      title: t(lang, "onboardingTodayResumeTitle"),
+      desc: t(lang, "onboardingTodayResumeDesc"),
     },
     {
-      title: lang === "fr" ? "Réglages & sauvegarde" : "Settings & backup",
-      desc: lang === "fr"
-        ? "Personnalise le thème et la langue, exporte/importes tes flux et dossiers depuis Réglages."
-        : "Customize theme and language, export/import your feeds and folders from Settings.",
+      title: t(lang, "onboardingSettingsBackupTitle"),
+      desc: t(lang, "onboardingSettingsBackupDesc"),
     },
   ];
 
@@ -90,15 +80,15 @@ export function Onboarding() {
         ) : null}
         <DialogFooter>
           <div className="w-full flex items-center justify-between">
-            <Button variant="ghost" onClick={finish}>{lang === "fr" ? "Passer" : "Skip"}</Button>
+            <Button variant="ghost" onClick={finish}>{t(lang, "onboardingSkip")}</Button>
             <div className="flex items-center gap-2">
               {step > 0 && (
-                <Button variant="outline" onClick={() => setStep((s) => Math.max(0, s - 1))}>{lang === "fr" ? "Précédent" : "Back"}</Button>
+                <Button variant="outline" onClick={() => setStep((s) => Math.max(0, s - 1))}>{t(lang, "onboardingBack")}</Button>
               )}
               {step < slides.length - 1 ? (
-                <Button onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>{lang === "fr" ? "Suivant" : "Next"}</Button>
+                <Button onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>{t(lang, "onboardingNext")}</Button>
               ) : (
-                <Button onClick={finish}>{lang === "fr" ? "Terminer" : "Done"}</Button>
+                <Button onClick={finish}>{t(lang, "onboardingDone")}</Button>
               )}
             </div>
           </div>

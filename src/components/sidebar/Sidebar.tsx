@@ -15,6 +15,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Pencil, Trash2, PanelLeft, PanelRight, Settings2, Plus, Loader2, FolderPlus, Folder, ChevronDown, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "next-themes";
+import Image from "next/image";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { SUGGESTED_FEEDS } from "@/lib/suggestions";
@@ -484,10 +485,12 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               aria-label={t(lang, "expandSidebar")}
             >
               {logoOk ? (
-                <img
+                <Image
                   src={logoSrc}
                   alt="Flux"
-                  className="absolute inset-0 h-8 w-8 object-contain transition-opacity group-hover:opacity-0"
+                  fill
+                  className="object-contain transition-opacity group-hover:opacity-0"
+                  sizes="32px"
                   onError={() => setLogoOk(false)}
                 />
               ) : null}
@@ -498,9 +501,11 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
           ) : (
             <>
               {logoOk ? (
-                <img
+                <Image
                   src={logoSrc}
                   alt="Flux"
+                  width={32}
+                  height={32}
                   className="h-8 w-8"
                   onError={() => setLogoOk(false)}
                 />
@@ -1187,9 +1192,11 @@ function Favicon({ url, className }: { url: string; className?: string }) {
   const src = getFaviconUrl(url);
   if (!ok) return <span className="block h-5 w-5 rounded-sm bg-foreground/10" />;
   return (
-    <img
+    <Image
       src={src}
       alt=""
+      width={20}
+      height={20}
       className={cn("block h-5 w-5 rounded-sm object-contain", className)}
       onError={() => setOk(false)}
     />
