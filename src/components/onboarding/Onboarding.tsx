@@ -32,12 +32,13 @@ export function Onboarding() {
     try { localStorage.setItem("flux:onboarding:seen", "1"); } catch {}
   }
 
-  const slides = [
+  const slides: Array<{ title: string; desc: string; videoEmbed?: string }> = [
     {
       title: lang === "fr" ? "Bienvenue dans Flux" : "Welcome to Flux",
       desc: lang === "fr"
         ? "Flux est un lecteur RSS minimaliste. Ajoute tes sources, organise-les et parcours l’actualité au quotidien."
         : "Flux is a minimalist RSS reader. Add your sources, organize them, and browse daily news.",
+      videoEmbed: "https://www.youtube-nocookie.com/embed/3G6Do8L3Cj8?rel=0&modestbranding=1&playsinline=1",
     },
     {
       title: lang === "fr" ? "Ajouter et organiser" : "Add and organize",
@@ -74,6 +75,18 @@ export function Onboarding() {
           <DialogTitle>{current.title}</DialogTitle>
           <DialogDescription>{current.desc}</DialogDescription>
         </DialogHeader>
+        {current.videoEmbed ? (
+          <div className="mt-3 rounded-xl overflow-hidden bg-black">
+            <div className="relative w-full pt-[56.25%]">
+              <iframe
+                src={current.videoEmbed}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        ) : null}
         <DialogFooter>
           <div className="w-full flex items-center justify-between">
             <Button variant="ghost" onClick={finish}>{lang === "fr" ? "Passer" : "Skip"}</Button>
