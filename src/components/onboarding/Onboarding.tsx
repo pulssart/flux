@@ -38,7 +38,7 @@ export function Onboarding() {
       desc: lang === "fr"
         ? "Flux est un lecteur RSS minimaliste. Ajoute tes sources, organise-les et parcours l’actualité au quotidien."
         : "Flux is a minimalist RSS reader. Add your sources, organize them, and browse daily news.",
-      videoEmbed: "https://www.youtube-nocookie.com/embed/3G6Do8L3Cj8?rel=0&modestbranding=1&playsinline=1",
+      videoEmbed: "https://www.youtube-nocookie.com/embed/3wlL_2347yY?rel=0&modestbranding=1&playsinline=1",
     },
     {
       title: lang === "fr" ? "Ajouter et organiser" : "Add and organize",
