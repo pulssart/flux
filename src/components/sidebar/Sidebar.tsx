@@ -13,6 +13,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Pencil, Trash2, PanelLeft, PanelRight, Settings2, Plus, Loader2, FolderPlus, Folder, ChevronDown, ChevronRight } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "next-themes";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
@@ -507,36 +508,48 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 <div className="sr-only" aria-label="Flux" />
               )}
               <div className="flex items-center gap-1">
-                <Button
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setAddOpen(true)}
                   aria-label={t(lang, "addFeed")}
-                  title={t(lang, "addFeed")}
                 >
-                  <Plus size={16} />
-                </Button>
-                <Button
+                      <Plus size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t(lang, "addFeed")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={addFolder}
                   aria-label={t(lang, "addFolder")}
-                  title={t(lang, "addFolder")}
                 >
-                  <FolderPlus size={16} />
-                </Button>
-                <Button
+                      <FolderPlus size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t(lang, "addFolder")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setSettingsOpen(true)}
                   aria-label={t(lang, "settingsTooltip")}
-                  title={t(lang, "settingsTooltip")}
                 >
-                  <Settings2 size={16} />
-                </Button>
+                      <Settings2 size={16} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t(lang, "settingsTooltip")}</TooltipContent>
+                </Tooltip>
                 <Button
                   variant="ghost"
                   size="icon"
