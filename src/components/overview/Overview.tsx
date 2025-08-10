@@ -67,8 +67,15 @@ export function Overview() {
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === "AbortError") {
         toast.error("Temps dépassé. Réessaie dans un instant.");
-      } else if (typeof e === "object" && e && "message" in e && String((e as any).message).toLowerCase().includes("abort")) {
-        toast.error("Temps dépassé. Réessaie dans un instant.");
+      } else if (typeof e === "object" && e && "message" in e) {
+        const messageVal = (e as { message?: unknown }).message;
+        const msg = typeof messageVal === "string" ? messageVal : String(messageVal ?? "");
+        if (msg.toLowerCase().includes("abort")) {
+          toast.error("Temps dépassé. Réessaie dans un instant.");
+        } else {
+          console.error(e);
+          toast.error("Failed to generate");
+        }
       } else {
         console.error(e);
         toast.error("Failed to generate");
