@@ -81,6 +81,7 @@ function saveFolders(folders: FolderInfo[]) {
 function exportAllData() {
   const feedsStr = localStorage.getItem("flux:feeds") || "[]";
   const foldersStr = localStorage.getItem("flux:folders") || "[]";
+  const aiKey = localStorage.getItem("flux:ai:openai") || "";
   const aiVoice = localStorage.getItem("flux:ai:voice") || "alloy";
   const lang = localStorage.getItem("flux:lang") || "fr";
   return {
@@ -88,8 +89,7 @@ function exportAllData() {
     exportedAt: new Date().toISOString(),
     feeds: JSON.parse(feedsStr),
     folders: JSON.parse(foldersStr),
-    // Ne pas exporter la clé API OpenAI
-    settings: { aiVoice, lang },
+    settings: { aiKey, aiVoice, lang },
   };
 }
 
