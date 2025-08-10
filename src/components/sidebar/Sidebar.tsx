@@ -917,6 +917,7 @@ function SidebarItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
+  const [lang] = useLang();
   useEffect(() => setValue(title), [title]);
 
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -941,13 +942,18 @@ function SidebarItem({
     >
       <span className="relative shrink-0 h-5 w-5" onClick={(e) => e.stopPropagation()} aria-label="Favicon">
         <Favicon url={url} className="transition-opacity group-hover:opacity-0" />
-        <span
-          className="absolute inset-0 grid place-items-center opacity-0 group-hover:opacity-100 text-muted-foreground cursor-grab active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical size={14} />
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="absolute inset-0 grid place-items-center opacity-0 group-hover:opacity-100 text-muted-foreground cursor-grab active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical size={14} />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{t(lang, "reorder")}</TooltipContent>
+        </Tooltip>
       </span>
       {editing ? (
         <input
@@ -981,20 +987,30 @@ function SidebarItem({
       )}
       <div className="ml-2 flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 hover:opacity-100 focus-within:opacity-100 transition-opacity">
-          <button
-            className="p-1 rounded hover:bg-foreground/5"
-            onClick={() => setEditing(true)}
-            aria-label="Renommer le flux"
-          >
-            <Pencil size={16} />
-          </button>
-          <button
-            className="p-1 rounded hover:bg-foreground/5"
-            onClick={() => onRemove()}
-            aria-label="Supprimer le flux"
-          >
-            <Trash2 size={16} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="p-1 rounded hover:bg-foreground/5"
+                onClick={() => setEditing(true)}
+                aria-label={t(lang, "rename")}
+              >
+                <Pencil size={16} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t(lang, "rename")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="p-1 rounded hover:bg-foreground/5"
+                onClick={() => onRemove()}
+                aria-label={t(lang, "remove")}
+              >
+                <Trash2 size={16} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t(lang, "remove")}</TooltipContent>
+          </Tooltip>
         </div>
         <UnreadBadge feedId={feedId} tick={tick} />
       </div>

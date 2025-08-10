@@ -9,6 +9,7 @@ import { cacheImagesForItems, cacheImagesForFeed, loadFeedItemsFromCache, saveFe
 import { getFeedsByIds } from "@/lib/feeds-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect } from "react";
@@ -479,29 +480,37 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
           )}
           {/* Bouton copier lien */}
           {article.link ? (
-            <button
-              type="button"
-              className="absolute right-2 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
-              title={copied ? "Lien copié" : "Copier le lien"}
-              onClick={copyLink}
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute right-2 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={copyLink}
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{copied ? t(lang, "linkCopied") : t(lang, "copyLink")}</TooltipContent>
+            </Tooltip>
           ) : null}
           {/* Bouton Play / Stop / Loader */}
           {!isPlaying && !isGenerating && (
-            <button
-              type="button"
-              className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
-              title="Lire le résumé audio"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onPlay();
-              }}
-            >
-              <Play className="w-4 h-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPlay();
+                  }}
+                >
+                  <Play className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t(lang, "playAudioSummary")}</TooltipContent>
+            </Tooltip>
           )}
           {isGenerating && (
             <span className="absolute right-2 bottom-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm">
@@ -509,18 +518,22 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
             </span>
           )}
           {isPlaying && !isGenerating && (
-            <button
-              type="button"
-              className="absolute right-2 bottom-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
-              title="Stop"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onStop();
-              }}
-            >
-              <Square className="w-4 h-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute right-2 bottom-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onStop();
+                  }}
+                >
+                  <Square className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t(lang, "stop")}</TooltipContent>
+            </Tooltip>
           )}
         </div>
         <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
