@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
+import { youtubeThumbnailFromLink } from "@/lib/rss";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest) {
     const lang: string = typeof body?.lang === "string" ? body.lang : "fr";
     const apiKey: string | undefined = typeof body?.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : (process.env.OPENAI_API_KEY || undefined);
     const fast: boolean = body?.fast === true;
+    const withImages: boolean = body?.images === true;
     if (!feeds.length) {
       return NextResponse.json({ html: "<p>No feeds selected.</p>" }, { status: 200 });
     }
@@ -67,8 +69,12 @@ export async function POST(req: NextRequest) {
            const contentEncoded = (it as unknown as Record<string, unknown>)["content:encoded"] as unknown;
            const contentStr = typeof it.content === "string" ? it.content : (typeof contentEncoded === "string" ? contentEncoded : "");
            const contentSnippet = String(it.contentSnippet || stripHtml(contentStr)).slice(0, 420);
-          const image = extractImageFromEnclosure(it);
-          items.push({ title, link, pubDate, contentSnippet, image });
+            let image = extractImageFromEnclosure(it);
+            if (!image && link) {
+              const yt = youtubeThumbnailFromLink(link);
+              if (yt) image = yt;
+            }
+            items.push({ title, link, pubDate, contentSnippet, image });
            // Limiter le coût: ne pas parcourir trop d'items par feed
            if (idx >= 20) break;
            if (Date.now() - startedAt > timeBudgetMs) break;
@@ -92,8 +98,10 @@ export async function POST(req: NextRequest) {
     const limited = todaysSorted.slice(0, MAX_ITEMS);
 
     // Compléter les images manquantes via OG (quota limité)
-    const toComplete = limited.filter((x) => !x.image && x.link).slice(0, MAX_ITEMS);
-    if (!fast && Date.now() - startedAt < timeBudgetMs - 1500) {
+    let toComplete = limited.filter((x) => !x.image && x.link);
+    // En mode rapide, ne compléter que quelques images (6 max) si demandé
+    if (fast) toComplete = toComplete.slice(0, 6);
+    if ((withImages || !fast) && Date.now() - startedAt < timeBudgetMs - 1500 && toComplete.length) {
       await Promise.allSettled(
         toComplete.map(async (it) => {
           try {

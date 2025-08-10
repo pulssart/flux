@@ -47,7 +47,7 @@ export function Overview() {
       const res = await fetch("/api/overview/today", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feeds, lang, apiKey: apiKey || undefined, fast: true }),
+        body: JSON.stringify({ feeds, lang, apiKey: apiKey || undefined, fast: true, images: true }),
         signal: controller.signal,
       });
       clearTimeout(t);

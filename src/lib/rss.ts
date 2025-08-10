@@ -207,7 +207,7 @@ function extractImageFromItunes(anyItem: Record<string, unknown>): string | null
   return null;
 }
 
-function youtubeThumbnailFromLink(link?: string): string | null {
+export function youtubeThumbnailFromLink(link?: string): string | null {
   if (!link) return null;
   try {
     const u = new URL(link);
