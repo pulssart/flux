@@ -13,6 +13,11 @@ export function Overview() {
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<null | { html: string }>(null);
 
+  const today = new Date();
+  const weekday = format(today, "EEEE", { locale: lang === "fr" ? frLocale : enUS });
+  const dateRest = format(today, "d MMMM yyyy", { locale: lang === "fr" ? frLocale : enUS });
+  const dateTitle = `${weekday} ${dateRest}`;
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("flux:overview:today");
@@ -21,12 +26,7 @@ export function Overview() {
         setContent({ html: sanitizeOverviewHtml(j.html, lang, dateTitle) });
       }
     } catch {}
-  }, []);
-
-  const today = new Date();
-  const weekday = format(today, "EEEE", { locale: lang === "fr" ? frLocale : enUS });
-  const dateRest = format(today, "d MMMM yyyy", { locale: lang === "fr" ? frLocale : enUS });
-  const dateTitle = `${weekday} ${dateRest}`;
+  }, [lang, dateTitle]);
 
   async function generate() {
     setGenerating(true);
@@ -43,7 +43,7 @@ export function Overview() {
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
       const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 15000);
+      const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 15000);
       const res = await fetch("/api/overview/today", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,9 +64,10 @@ export function Overview() {
           JSON.stringify({ html: cleanHtml, date: new Date().toISOString() })
         );
       } catch {}
-    } catch (e: any) {
-      clearTimeout?.(t as any);
-      if (e && (e.name === "AbortError" || e.message?.includes("aborted"))) {
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        toast.error("Temps dépassé. Réessaie dans un instant.");
+      } else if (typeof e === "object" && e && "message" in e && String((e as any).message).toLowerCase().includes("abort")) {
         toast.error("Temps dépassé. Réessaie dans un instant.");
       } else {
         console.error(e);

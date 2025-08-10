@@ -220,11 +220,10 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
 
   type BatchResponse = { items: Article[] };
   // Pré-remplir avec cache local (client) si dispo, puis revalider chaque heure
-  const cacheKey = feeds.map((f) => f.url).join("|");
   const initialFromCache = feeds.flatMap((f) => loadFeedItemsFromCache(f.url));
   const { data, error, isLoading, isValidating, mutate } = useSWR<BatchResponse>(
     feeds.length > 0 ? ["/api/feeds/batch", { feeds: feeds.map((f) => f.url) }, refreshKey, manualRefresh] : null,
-    ([url, body]) => fetcher<BatchResponse>(url, body),
+    ([url, body]) => fetcher<BatchResponse>(url as string, body),
     { revalidateOnFocus: false, refreshInterval: 60 * 60 * 1000, fallbackData: initialFromCache.length ? { items: initialFromCache } : undefined }
   );
 
@@ -754,8 +753,7 @@ function useImageLuminance(imageUrl?: string) {
   return { luminance, overlayCss };
 }
 
-// Ancien handler conservé si besoin ailleurs
-async function handlePlayArticle() {}
+  // Ancien handler non utilisé supprimé
 
 type JsonUnknown = unknown;
 async function safeJson(res: Response): Promise<JsonUnknown | null> {
