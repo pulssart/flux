@@ -43,7 +43,7 @@ export function Overview() {
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
       const controller = new AbortController();
-      const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 15000);
+      const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 20000);
       const res = await fetch("/api/overview/today", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

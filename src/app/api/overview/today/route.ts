@@ -19,10 +19,11 @@ export async function POST(req: NextRequest) {
     const thresholdMs = nowMs - 24 * 60 * 60 * 1000;
 
     // Parser rapide sans enrichissement OG (plus performant)
-    const parser = new Parser({ timeout: 3000 });
-    const maxFeeds = Math.min(12, feeds.length);
-    const chunkSize = 3;
-    const timeBudgetMs = 9000;
+    // Mode rapide pour éviter les timeouts sur l'hébergement (fonction serverless ~10s)
+    const parser = new Parser({ timeout: 2000 });
+    const maxFeeds = Math.min(8, feeds.length);
+    const chunkSize = 2;
+    const timeBudgetMs = 6000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest) {
            const contentSnippet = String(it.contentSnippet || stripHtml(contentStr)).slice(0, 420);
           const image = extractImageFromEnclosure(it);
           items.push({ title, link, pubDate, contentSnippet, image });
+           // Limiter le coût: ne pas parcourir trop d'items par feed
+           if (idx >= 20) break;
+           if (Date.now() - startedAt > timeBudgetMs) break;
         }
       }
       if (items.length >= 120) break; // sécurité
@@ -88,11 +92,11 @@ export async function POST(req: NextRequest) {
 
     // Compléter les images manquantes via OG (quota limité)
     const toComplete = limited.filter((x) => !x.image && x.link).slice(0, MAX_ITEMS);
-    if (Date.now() - startedAt < timeBudgetMs - 1200) {
+    if (Date.now() - startedAt < timeBudgetMs - 1500) {
       await Promise.allSettled(
         toComplete.map(async (it) => {
           try {
-            const og = await fetchOg(it.link as string, 1200);
+            const og = await fetchOg(it.link as string, 1000);
             if (og && og.image) {
               it.image = og.image || undefined;
             }
@@ -103,7 +107,9 @@ export async function POST(req: NextRequest) {
 
     // Résumés par article dans la langue cible si clé API disponible
     let perItemSummaries: string[] = [];
-    if (apiKey) {
+    const timeSpentMs = Date.now() - startedAt;
+    const timeLeftMs = timeBudgetMs - timeSpentMs;
+    if (apiKey && timeLeftMs > 2000) {
       try {
         perItemSummaries = await summarizeItemsWithAI(
           limited.map((x) => ({ title: x.title, snippet: x.contentSnippet })),
@@ -146,7 +152,7 @@ export async function POST(req: NextRequest) {
     });
     // Option: générer un chapeau éditorial dans la langue, si clé API dispo
     let intro = "";
-    if (apiKey) {
+    if (apiKey && (timeBudgetMs - (Date.now() - startedAt) > 1500)) {
       try {
         const prompt = lang === "fr"
           ? "Rédige un court chapeau (2 à 4 phrases) en français résumant les grands thèmes des actualités listées ci-dessous."
