@@ -67,10 +67,11 @@ export function Onboarding() {
   ];
 
   const current = slides[step];
+  const large = !!current.videoEmbed && step === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) finish(); }}>
-      <DialogContent>
+      <DialogContent className={large ? "w-[92vw] max-w-4xl md:max-w-5xl" : undefined}>
         <DialogHeader>
           <DialogTitle>{current.title}</DialogTitle>
           <DialogDescription>{current.desc}</DialogDescription>
