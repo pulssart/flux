@@ -68,6 +68,12 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
         image = ogMeta?.image || null;
       }
 
+      // Fallback spécifique YouTube: construire l'URL de miniature si nécessaire
+      if (!image && item.link) {
+        const yt = youtubeThumbnailFromLink(item.link);
+        if (yt) image = yt;
+      }
+
       const id = (item.guid as string) || `${item.link || ""}#${index}`;
 
       // Build description/snippet with robust fallbacks (e.g., Product Hunt)
@@ -156,6 +162,7 @@ function extractImageFromMedia(anyItem: Record<string, unknown>): string | null 
   const mediaContent = anyItem["media:content"] as unknown;
   const mediaThumb = anyItem["media:thumbnail"] as unknown;
   const itunesImage = anyItem["itunes:image"] as unknown;
+  const mediaGroup = anyItem["media:group"] as unknown;
 
   const tryGetUrl = (val: unknown): string | null => {
     if (!val) return null;
@@ -180,7 +187,14 @@ function extractImageFromMedia(anyItem: Record<string, unknown>): string | null 
     return null;
   };
 
-  return tryGetUrl(mediaContent) || tryGetUrl(mediaThumb) || tryGetUrl(itunesImage);
+  // Explorer aussi media:group { media:thumbnail, media:content }
+  const fromGroup = ((): string | null => {
+    if (!mediaGroup || typeof mediaGroup !== "object") return null;
+    const grp = mediaGroup as Record<string, unknown>;
+    return tryGetUrl(grp["media:thumbnail"]) || tryGetUrl(grp["media:content"]) || null;
+  })();
+
+  return tryGetUrl(mediaContent) || tryGetUrl(mediaThumb) || fromGroup || tryGetUrl(itunesImage);
 }
 
 function extractImageFromItunes(anyItem: Record<string, unknown>): string | null {
@@ -191,6 +205,26 @@ function extractImageFromItunes(anyItem: Record<string, unknown>): string | null
     if (typeof href === "string") return href;
   }
   return null;
+}
+
+function youtubeThumbnailFromLink(link?: string): string | null {
+  if (!link) return null;
+  try {
+    const u = new URL(link);
+    const host = u.hostname.replace(/^www\./, "");
+    let id = "";
+    if (host === "youtu.be") {
+      id = u.pathname.slice(1);
+    } else if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com") || host === "m.youtube.com") {
+      id = u.searchParams.get("v") || "";
+      if (!id && u.pathname.startsWith("/shorts/")) id = u.pathname.split("/shorts/")[1] || "";
+      if (!id && u.pathname.startsWith("/embed/")) id = u.pathname.split("/embed/")[1] || "";
+    }
+    if (!id) return null;
+    return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
+  } catch {
+    return null;
+  }
 }
 
 type OgMetadata = { image?: string | null; description?: string | null; firstParagraph?: string | null };
