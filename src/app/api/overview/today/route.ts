@@ -90,7 +90,9 @@ export async function POST(req: NextRequest) {
       toComplete.map(async (it) => {
         try {
           const og = await fetchOg(it.link as string, 1800);
-          if (og?.image) (it as any).image = og.image;
+          if (og && og.image) {
+            it.image = og.image || undefined;
+          }
         } catch {}
       })
     );
@@ -107,15 +109,6 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    // H1 date localisée
-    const date = new Date();
-    const formatter = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "fr-FR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-    const dateTitle = formatter.format(date);
     const viewLabel = lang === "en" ? "View article" : "Voir l’article";
 
     // Construire un HTML éditorial (titre + cartes élégantes)
@@ -220,7 +213,7 @@ async function summarizeItemsWithAI(
 
   // 1) Tentative JSON stricte
   let text = await callResponses(apiKey, `${headJSON}\n\n${list}`);
-  let parsed = tryParseArray(text);
+  const parsed = tryParseArray(text);
   if (parsed.length) return parsed.slice(0, items.length);
 
   // 2) Fallback: réponses par lignes en langue cible

@@ -40,14 +40,14 @@ export async function POST(req: NextRequest) {
           { status: 502 }
         );
       }
-      const primary = extractMainText(html, url);
+      const primary = extractMainText(html);
       let base = (primary || "").trim();
       if (base.length < 120) {
         const $ = cheerio.load(html);
         const fb = $("body").text().trim();
         if (!fb || fb.length < 80) {
           return NextResponse.json(
-            { error: "Article introuvable ou trop court", stage: "extract", details: { primaryLength: base.length, bodyLength: fb?.length || 0 } },
+          { error: "Article introuvable ou trop court", stage: "extract", details: { primaryLength: base.length, bodyLength: (fb ? fb.length : 0) } },
             { status: 422 }
           );
         }
@@ -165,7 +165,7 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<string>
   }
 }
 
-function extractMainText(html: string, baseUrl?: string): string {
+function extractMainText(html: string): string {
   const $ = cheerio.load(html);
   $("script, style, nav, header, footer, aside, form, noscript, svg").remove();
 
