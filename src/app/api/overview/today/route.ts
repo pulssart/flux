@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "nodejs";
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 
@@ -18,10 +19,10 @@ export async function POST(req: NextRequest) {
     const thresholdMs = nowMs - 24 * 60 * 60 * 1000;
 
     // Parser rapide sans enrichissement OG (plus performant)
-    const parser = new Parser({ timeout: 7000 });
-    const maxFeeds = Math.min(30, feeds.length);
-    const chunkSize = 5;
-    const timeBudgetMs = 12000;
+    const parser = new Parser({ timeout: 5000 });
+    const maxFeeds = Math.min(20, feeds.length);
+    const chunkSize = 4;
+    const timeBudgetMs = 8000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
@@ -86,16 +87,18 @@ export async function POST(req: NextRequest) {
 
     // Compléter les images manquantes via OG (quota limité)
     const toComplete = limited.filter((x) => !x.image && x.link).slice(0, MAX_ITEMS);
-    await Promise.allSettled(
-      toComplete.map(async (it) => {
-        try {
-          const og = await fetchOg(it.link as string, 1800);
-          if (og && og.image) {
-            it.image = og.image || undefined;
-          }
-        } catch {}
-      })
-    );
+    if (Date.now() - startedAt < timeBudgetMs - 1200) {
+      await Promise.allSettled(
+        toComplete.map(async (it) => {
+          try {
+            const og = await fetchOg(it.link as string, 1200);
+            if (og && og.image) {
+              it.image = og.image || undefined;
+            }
+          } catch {}
+        })
+      );
+    }
 
     // Résumés par article dans la langue cible si clé API disponible
     let perItemSummaries: string[] = [];
@@ -112,8 +115,12 @@ export async function POST(req: NextRequest) {
     const viewLabel = lang === "en" ? "View article" : "Voir l’article";
 
     // Construire un HTML éditorial (titre + cartes élégantes)
+    const toBase64Url = (s: string) => {
+      const b64 = Buffer.from(s, "utf-8").toString("base64");
+      return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    };
     const blocks = limited.map((it, idx) => {
-      const proxy = (url: string) => `/api/proxy-image?u=${encodeURIComponent(url)}`;
+      const proxy = (url: string) => `/api/proxy-image/${toBase64Url(url)}`;
       const img = it.image
         ? `<div style="margin:0 0 12px 0;"><img src="${proxy(it.image)}" alt="" style="display:block;max-width:100%;height:auto;border-radius:12px;"/></div>`
         : "";
