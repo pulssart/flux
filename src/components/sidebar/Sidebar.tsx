@@ -787,6 +787,14 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 >
                   {t(lang, "importData")}
                 </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    window.dispatchEvent(new Event("flux:onboarding:open"));
+                  }}
+                >
+                  {lang === "fr" ? "Relancer l’onboarding" : "Relaunch onboarding"}
+                </Button>
               </div>
             </div>
           </div>

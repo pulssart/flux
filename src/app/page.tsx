@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { FeedGrid } from "@/components/feeds/FeedGrid";
 import { Overview } from "@/components/overview/Overview";
+import { Onboarding } from "@/components/onboarding/Onboarding";
 
 export default function Home() {
   const [selectedFeedIds, setSelectedFeedIds] = useState<string[]>([]);
@@ -31,6 +32,7 @@ export default function Home() {
         onFeedsChanged={() => setFeedsVersion((v) => v + 1)}
       />
       <main className="p-6">
+        <Onboarding />
         {showOverview ? (
           <Overview />
         ) : (
