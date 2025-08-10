@@ -467,7 +467,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
         <div className="relative h-[200px] bg-muted overflow-hidden group">
           {article.image ? (
             <img
-              src={`/api/proxy-image?u=${encodeURIComponent(article.image)}`}
+              src={`/api/proxy-image/${btoa(article.image).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
               alt=""
               className="block object-cover w-full h-full"
               loading="lazy"
@@ -598,7 +598,7 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
         <div className="absolute inset-0 bg-muted" />
         {article.image ? (
           <img
-            src={`/api/proxy-image?u=${encodeURIComponent(article.image)}`}
+            src={`/api/proxy-image/${btoa(article.image).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
             alt=""
             className="absolute inset-0 object-cover w-full h-full"
             loading="lazy"
