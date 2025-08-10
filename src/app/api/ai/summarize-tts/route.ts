@@ -1,0 +1,357 @@
+export const runtime = "nodejs";
+
+class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+import { NextRequest, NextResponse } from "next/server";
+import * as cheerio from "cheerio";
+
+type SummarizeTtsBody = {
+  // Mode article unique (existant)
+  url?: string;
+  // Mode digest du jour (nouveau)
+  items?: { title: string; snippet?: string }[];
+  sourceTitle?: string;
+  lang?: string; // "fr" | "en" | ...
+  apiKey?: string; // optional client-provided key
+  voice?: string; // optional client-provided voice
+};
+
+export async function POST(req: NextRequest) {
+  try {
+    const { url, items, sourceTitle, lang = "fr", apiKey, voice } = (await req.json()) as SummarizeTtsBody;
+    if (!(apiKey || process.env.OPENAI_API_KEY)) {
+      return NextResponse.json({ error: "Clé OpenAI manquante. Renseignez-la dans Réglages." }, { status: 401 });
+    }
+
+    // Branche 1: article unique depuis une URL (comportement existant)
+    if (url && typeof url === "string") {
+      let html: string;
+      try {
+        html = await fetchWithTimeout(url, 12000);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        return NextResponse.json(
+          { error: "Échec de récupération de la page", stage: "fetch", details: { url, message } },
+          { status: 502 }
+        );
+      }
+      const primary = extractMainText(html, url);
+      let base = (primary || "").trim();
+      if (base.length < 120) {
+        const $ = cheerio.load(html);
+        const fb = $("body").text().trim();
+        if (!fb || fb.length < 80) {
+          return NextResponse.json(
+            { error: "Article introuvable ou trop court", stage: "extract", details: { primaryLength: base.length, bodyLength: fb?.length || 0 } },
+            { status: 422 }
+          );
+        }
+        base = fb;
+      }
+
+      const normalized = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim();
+      const limited = normalized.slice(0, 20000);
+
+      let summary: string;
+      try {
+        summary = await summarizeWithGPT5(limited, lang, apiKey);
+      } catch (e: unknown) {
+        if (e instanceof ApiError) {
+          return NextResponse.json(
+            { error: e.message, stage: "summary" },
+            { status: e.status }
+          );
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        return NextResponse.json(
+          { error: message, stage: "summary" },
+          { status: 500 }
+        );
+      }
+
+      let audioBase64: string;
+      try {
+        audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice);
+      } catch (e: unknown) {
+        if (e instanceof ApiError) {
+          return NextResponse.json(
+            { error: e.message, stage: "tts" },
+            { status: e.status }
+          );
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        return NextResponse.json(
+          { error: message, stage: "tts" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
+    }
+
+    // Branche 2: digest du jour depuis liste de titres/extraits
+    if (Array.isArray(items) && items.length > 0) {
+      const input = buildDigestInput(items);
+      let digestSummary: string;
+      try {
+        digestSummary = await summarizeDailyDigestWithGPT5(input, lang, apiKey);
+      } catch (e: unknown) {
+        if (e instanceof ApiError) {
+          return NextResponse.json(
+            { error: e.message, stage: "summary" },
+            { status: e.status }
+          );
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        return NextResponse.json(
+          { error: message, stage: "summary" },
+          { status: 500 }
+        );
+      }
+
+      const prefix = lang === "fr"
+        ? `Voici l'actualité du jours depuis ${sourceTitle || "votre sélection"} : `
+        : `Here is today's news from ${sourceTitle || "your selection"}: `;
+      const finalText = `${prefix}${digestSummary}`.trim();
+
+      let audioBase64: string;
+      try {
+        audioBase64 = await ttsWithTTS1HD(finalText, lang, apiKey, voice);
+      } catch (e: unknown) {
+        if (e instanceof ApiError) {
+          return NextResponse.json(
+            { error: e.message, stage: "tts" },
+            { status: e.status }
+          );
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        return NextResponse.json(
+          { error: message, stage: "tts" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ text: finalText, audio: audioBase64 }, { status: 200 });
+    }
+
+    return NextResponse.json({ error: "Requête invalide: url ou items requis" }, { status: 400 });
+  } catch (e: unknown) {
+    if (e instanceof ApiError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    const message = e instanceof Error ? e.message : "Erreur";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "user-agent": "FluxRSS/1.0" },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function extractMainText(html: string, baseUrl?: string): string {
+  const $ = cheerio.load(html);
+  $("script, style, nav, header, footer, aside, form, noscript, svg").remove();
+
+  // Essayez d'abord les conteneurs évidents
+  const prioritySelectors = [
+    "article",
+    "main",
+    "#content, .content, #main, .main, .post, .article, .entry-content, [itemprop='articleBody']",
+  ];
+
+  let best = "";
+  for (const sel of prioritySelectors) {
+    const el = $(sel).first();
+    const txt = el.text().trim();
+    if (txt.length > best.length) best = txt;
+  }
+
+  // Heuristique de lisibilité: scorer les blocs
+  if (best.length < 300) {
+    type Candidate = { score: number; text: string };
+    let top: Candidate = { score: 0, text: "" };
+    $("article, main, section, div").each((_, el) => {
+      const node = $(el);
+      const text = node.find("p, li").text().trim();
+      const len = text.length;
+      if (len < 200) return;
+      const linkText = node.find("a").text().length;
+      const linkDensity = len ? Math.min(0.9, linkText / len) : 0;
+      const headings = node.find("h1, h2").text().length;
+      const score = len * (1 - linkDensity) + Math.min(200, headings);
+      if (score > top.score) top = { score, text };
+    });
+    if (top.text) best = top.text;
+  }
+
+  // Nettoyage final
+  best = best.replace(/\s+/g, " ").trim();
+  return best;
+}
+
+async function summarizeWithGPT5(input: string, lang: string, clientKey?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const prompt =
+    lang === "fr"
+      ? "Résume l’article de manière concise et claire (3 à 5 phrases), en français, en gardant les informations clés."
+      : "Summarize the article in 3-5 concise sentences in the requested language, preserving key facts.";
+
+  // Utiliser l'API Responses pour gpt-5-nano
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-nano",
+      input: `${prompt}\n\n${input}`,
+    }),
+  });
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
+  }
+  const json = (await res.json()) as any;
+  const text = extractTextFromResponses(json);
+  if (!text) {
+    const details = {
+      keys: Object.keys(json || {}),
+      preview: JSON.stringify(json)?.slice(0, 300),
+    };
+    throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
+  }
+  return text.trim();
+}
+
+function buildDigestInput(items: { title: string; snippet?: string }[]): string {
+  const parts = items.map((it, idx) => {
+    const snip = (it.snippet || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    return `${idx + 1}. ${it.title}${snip ? ` — ${snip}` : ""}`;
+  });
+  return parts.join("\n");
+}
+
+async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientKey?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const prompt =
+    lang === "fr"
+      ? "À partir d'une liste de titres et d'extraits d'articles du jour, produis un court bulletin structuré (4 à 7 phrases) en français, regroupant les grands thèmes et reliant les infos de manière fluide."
+      : "From a list of today's headlines and snippets, produce a short structured bulletin (4-7 sentences) summarizing key themes in the requested language.";
+
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-nano",
+      input: `${prompt}\n\n${input}`,
+    }),
+  });
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
+  }
+  const json = (await res.json()) as any;
+  const text = extractTextFromResponses(json);
+  if (!text) {
+    const details = {
+      keys: Object.keys(json || {}),
+      preview: JSON.stringify(json)?.slice(0, 300),
+    };
+    throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
+  }
+  return text.trim();
+}
+
+function extractTextFromResponses(json: any): string {
+  if (!json) return "";
+  if (typeof json.output_text === "string" && json.output_text.trim()) return json.output_text;
+  // responses.output[].content[].text
+  const outputArr = Array.isArray(json.output) ? json.output : [];
+  for (const o of outputArr) {
+    const content = Array.isArray(o?.content) ? o.content : [];
+    for (const c of content) {
+      if (typeof c?.text === "string" && c.text.trim()) return c.text;
+      if (Array.isArray(c?.content)) {
+        for (const cc of c.content) {
+          if (typeof cc?.text === "string" && cc.text.trim()) return cc.text;
+        }
+      }
+    }
+  }
+  // sometimes under json.content[] directly
+  const contentArr = Array.isArray(json.content) ? json.content : [];
+  for (const c of contentArr) {
+    if (typeof c?.text === "string" && c.text.trim()) return c.text;
+  }
+  // chat completions fallback shapes
+  const choice = json?.choices?.[0];
+  if (choice?.message?.content && typeof choice.message.content === "string" && choice.message.content.trim()) return choice.message.content;
+  if (choice?.text && typeof choice.text === "string" && choice.text.trim()) return choice.text;
+  return "";
+}
+
+async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, clientVoice?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const voice = (clientVoice && typeof clientVoice === "string" ? clientVoice : null) || (lang === "fr" ? "alloy" : "alloy");
+  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini-tts",
+      input,
+      voice,
+      format: "mp3",
+    }),
+  });
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI TTS: ${errText || res.statusText}`);
+  }
+  const arrayBuf = await res.arrayBuffer();
+  const base64 = Buffer.from(arrayBuf).toString("base64");
+  return base64;
+}
+
+
