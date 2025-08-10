@@ -19,10 +19,10 @@ export async function POST(req: NextRequest) {
     const thresholdMs = nowMs - 24 * 60 * 60 * 1000;
 
     // Parser rapide sans enrichissement OG (plus performant)
-    const parser = new Parser({ timeout: 5000 });
-    const maxFeeds = Math.min(20, feeds.length);
-    const chunkSize = 4;
-    const timeBudgetMs = 8000;
+    const parser = new Parser({ timeout: 3000 });
+    const maxFeeds = Math.min(12, feeds.length);
+    const chunkSize = 3;
+    const timeBudgetMs = 6000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
         }
       }
       if (items.length >= 120) break; // sécurité
+      if (Date.now() - startedAt > timeBudgetMs) break;
     }
     const todays = items.filter((it) => {
       if (!it.pubDate) return false;

@@ -42,11 +42,15 @@ export function Overview() {
       } catch {}
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 9000);
       const res = await fetch("/api/overview/today", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feeds, lang, apiKey: apiKey || undefined }),
+        signal: controller.signal,
       });
+      clearTimeout(t);
       if (!res.ok) {
         const j = await res.json().catch(() => null);
         throw new Error(j?.error || `HTTP ${res.status}`);
