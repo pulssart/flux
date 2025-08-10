@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useLang, t } from "@/lib/i18n";
+import { useLang } from "@/lib/i18n";
 
 export function Onboarding() {
   const [lang] = useLang();
@@ -19,12 +19,12 @@ export function Onboarding() {
   }, []);
 
   useEffect(() => {
-    const on = () => {
+    const on = (_e: Event) => {
       setStep(0);
       setOpen(true);
     };
-    window.addEventListener("flux:onboarding:open" as any, on as EventListener);
-    return () => window.removeEventListener("flux:onboarding:open" as any, on as EventListener);
+    window.addEventListener("flux:onboarding:open", on);
+    return () => window.removeEventListener("flux:onboarding:open", on);
   }, []);
 
   function finish() {

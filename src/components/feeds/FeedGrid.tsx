@@ -228,7 +228,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     { revalidateOnFocus: false, refreshInterval: 60 * 60 * 1000, fallbackData: initialFromCache.length ? { items: initialFromCache } : undefined }
   );
 
-  const allArticles: Article[] = data?.items || [];
+  const allArticles: Article[] = useMemo(() => data?.items || [], [data?.items]);
   const articles: Article[] = useMemo(() => {
     if (filter !== "today") return allArticles;
     const start = new Date();
