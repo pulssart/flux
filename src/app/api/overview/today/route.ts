@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const parser = new Parser({ timeout: 3000 });
     const maxFeeds = Math.min(12, feeds.length);
     const chunkSize = 3;
-    const timeBudgetMs = 6000;
+    const timeBudgetMs = 9000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };

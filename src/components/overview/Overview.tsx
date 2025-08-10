@@ -43,7 +43,7 @@ export function Overview() {
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
       const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 9000);
+      const t = setTimeout(() => controller.abort(), 15000);
       const res = await fetch("/api/overview/today", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,9 +64,14 @@ export function Overview() {
           JSON.stringify({ html: cleanHtml, date: new Date().toISOString() })
         );
       } catch {}
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to generate");
+    } catch (e: any) {
+      clearTimeout?.(t as any);
+      if (e && (e.name === "AbortError" || e.message?.includes("aborted"))) {
+        toast.error("Temps dépassé. Réessaie dans un instant.");
+      } else {
+        console.error(e);
+        toast.error("Failed to generate");
+      }
     } finally {
       setGenerating(false);
     }
