@@ -84,7 +84,7 @@ function exportAllData() {
   const foldersStr = localStorage.getItem("flux:folders") || "[]";
   const aiKey = localStorage.getItem("flux:ai:openai") || "";
   const aiVoice = localStorage.getItem("flux:ai:voice") || "alloy";
-  const lang = localStorage.getItem("flux:lang") || "fr";
+  const lang = localStorage.getItem("flux:lang") || "en";
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -163,7 +163,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
 
   function addFolder() {
     const id = crypto.randomUUID();
-    const folder: FolderInfo = { id, title: "Nouveau dossier", feedIds: [], collapsed: false };
+    const folder: FolderInfo = { id, title: t(lang, "newFolder"), feedIds: [], collapsed: false };
     const next = [...folders, folder];
     setFolders(next);
     saveFolders(next);
@@ -275,7 +275,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
 
     // 3) Si toujours rien: afficher toast d'alerte et sortir
     if (!candidateUrl) {
-      toast.error("Aucun flux RSS détecté pour cette URL. Vérifie l’adresse ou essaie une autre page.");
+      toast.error(t(lang, "noFeedDetected"));
       setAdding(false);
       return;
     }
@@ -288,14 +288,14 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         body: JSON.stringify({ url: candidateUrl }),
       });
       if (!res.ok) {
-        toast.error("Aucun flux RSS détecté pour cette URL. Vérifie l’adresse ou essaie une autre page.");
+        toast.error(t(lang, "noFeedDetected"));
         setAdding(false);
         return;
       }
       const data = await res.json();
       if (!title) title = (data.title as string) || "";
     } catch {
-      toast.error("Aucun flux RSS détecté pour cette URL. Vérifie l’adresse ou essaie une autre page.");
+      toast.error(t(lang, "noFeedDetected"));
       setAdding(false);
       return;
     }
@@ -481,7 +481,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
             <button
               className="group relative h-8 w-8"
               onClick={onToggleCollapse}
-              aria-label="Déployer la sidebar"
+              aria-label={t(lang, "expandSidebar")}
             >
               {logoOk ? (
                 <img
@@ -555,7 +555,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                   size="icon"
                   className="h-8 w-8"
                   onClick={onToggleCollapse}
-                  aria-label="Réduire la sidebar"
+                  aria-label={t(lang, "collapseSidebar")}
                 >
                   <PanelLeft size={16} />
                 </Button>
@@ -649,12 +649,12 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       )}
       {/* poignée de redimensionnement (uniquement en mode étendu) */}
       {!collapsed && (
-        <div
+            <div
           className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-foreground/10"
           onMouseDown={startResize}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Redimensionner la sidebar"
+          aria-label={t(lang, "resizeSidebar")}
         />
       )}
 
@@ -681,7 +681,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm">Clé API OpenAI (GPT-5 / TTS-1 HD)</Label>
+              <Label className="text-sm">{t(lang, "openAiKeyLabel")}</Label>
               <Input
                 type="password"
                 placeholder="sk-..."
@@ -693,10 +693,10 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                   } catch {}
                 }}
               />
-              <p className="text-xs text-muted-foreground">Cette clé sera utilisée localement pour les fonctionnalités d’analyse et de synthèse vocale.</p>
+              <p className="text-xs text-muted-foreground">{t(lang, "openAiKeyHelp")}</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm">Voix IA (TTS)</Label>
+              <Label className="text-sm">{t(lang, "aiVoiceLabel")}</Label>
               <select
                 className="w-full bg-background border rounded-md px-3 py-2 text-sm"
                 value={aiVoice}
@@ -718,10 +718,10 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 <option value="ash">Ash</option>
                 <option value="sage">Sage</option>
               </select>
-              <p className="text-xs text-muted-foreground">Choisissez la voix utilisée pour la lecture des résumés.</p>
+              <p className="text-xs text-muted-foreground">{t(lang, "aiVoiceHelp")}</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm">Backup</Label>
+              <Label className="text-sm">{t(lang, "backupLabel")}</Label>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -793,7 +793,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                     window.dispatchEvent(new Event("flux:onboarding:open"));
                   }}
                 >
-                  {lang === "fr" ? "Relancer l’onboarding" : "Relaunch onboarding"}
+                  {t(lang, "relaunchOnboarding")}
                 </Button>
               </div>
             </div>
@@ -848,7 +848,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 }}
               >
                 {adding ? (
-                  <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Vérification…</span>
+                  <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {t(lang, "verifying")}</span>
                 ) : (
                   t(lang, "add")
                 )}
@@ -1049,6 +1049,7 @@ function SidebarFolderItem({
   onToggleCollapsed: (id: string) => void;
   tick: number;
 }) {
+  const [lang] = useLang();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(folder.title);
   useEffect(() => setValue(folder.title), [folder.title]);
@@ -1115,17 +1116,17 @@ function SidebarFolderItem({
         )}
         <div className="ml-2 flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1.5 opacity-0 group-hover/folder:opacity-100 transition-opacity">
-            <button className="p-1 rounded hover:bg-foreground/5" onClick={() => setEditing(true)} aria-label="Renommer le dossier">
+            <button className="p-1 rounded hover:bg-foreground/5" onClick={() => setEditing(true)} aria-label={t(lang, "renameFolder")}>
               <Pencil size={16} />
             </button>
-            <button className="p-1 rounded hover:bg-foreground/5" onClick={() => onRemoveFolder(folder.id)} aria-label="Supprimer le dossier">
+            <button className="p-1 rounded hover:bg-foreground/5" onClick={() => onRemoveFolder(folder.id)} aria-label={t(lang, "removeFolder")}>
               <Trash2 size={16} />
             </button>
           </div>
           <button
             className="p-1 rounded hover:bg-foreground/5"
             onClick={() => onToggleCollapsed(folder.id)}
-            aria-label={folder.collapsed ? "Déplier" : "Replier"}
+            aria-label={folder.collapsed ? t(lang, "expandFolder") : t(lang, "collapseFolder")}
           >
             {folder.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
           </button>

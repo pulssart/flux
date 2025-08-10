@@ -61,6 +61,19 @@ const DICT: Record<Lang, Record<string, string>> = {
     settingsTooltip: "Réglages",
     playAudioSummary: "Lire le résumé audio",
     reorder: "Réorganiser",
+    newFolder: "Nouveau dossier",
+    verifying: "Vérification…",
+    relaunchOnboarding: "Relancer l’onboarding",
+    openAiKeyLabel: "Clé API OpenAI (GPT-5 / TTS-1 HD)",
+    openAiKeyHelp: "Cette clé sera utilisée localement pour les fonctionnalités d’analyse et de synthèse vocale.",
+    aiVoiceLabel: "Voix IA (TTS)",
+    aiVoiceHelp: "Choisissez la voix utilisée pour la lecture des résumés.",
+    backupLabel: "Sauvegarde",
+    resizeSidebar: "Redimensionner la sidebar",
+    renameFolder: "Renommer le dossier",
+    removeFolder: "Supprimer le dossier",
+    expandFolder: "Déplier",
+    collapseFolder: "Replier",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -118,13 +131,26 @@ const DICT: Record<Lang, Record<string, string>> = {
     settingsTooltip: "Settings",
     playAudioSummary: "Play audio summary",
     reorder: "Reorder",
+    newFolder: "New folder",
+    verifying: "Checking…",
+    relaunchOnboarding: "Relaunch onboarding",
+    openAiKeyLabel: "OpenAI API Key (GPT-5 / TTS-1 HD)",
+    openAiKeyHelp: "This key will be used locally for analysis and text-to-speech features.",
+    aiVoiceLabel: "AI Voice (TTS)",
+    aiVoiceHelp: "Choose the voice used to read summaries.",
+    backupLabel: "Backup",
+    resizeSidebar: "Resize sidebar",
+    renameFolder: "Rename folder",
+    removeFolder: "Delete folder",
+    expandFolder: "Expand",
+    collapseFolder: "Collapse",
   },
 };
 
 export function getLang(): Lang {
-  if (typeof window === "undefined") return "fr";
+  if (typeof window === "undefined") return "en";
   const v = localStorage.getItem(STORAGE_KEY) as Lang | null;
-  return v === "en" ? "en" : "fr";
+  return v === "fr" ? "fr" : "en";
 }
 
 export function setLang(lang: Lang) {
@@ -145,12 +171,18 @@ export function useLang(): [Lang, (l: Lang) => void] {
     window.addEventListener(EVT, on as EventListener);
     return () => window.removeEventListener(EVT, on as EventListener);
   }, []);
+  // Ensure the HTML document language reflects the current app language, including on first mount
+  useEffect(() => {
+    try {
+      document.documentElement.lang = lang;
+    } catch {}
+  }, [lang]);
   const setter = (l: Lang) => setLang(l);
   return [lang, setter];
 }
 
 export function t(lang: Lang, key: string): string {
-  const dict = DICT[lang] || DICT.fr;
+  const dict = DICT[lang] || DICT.en;
   return dict[key] || key;
 }
 
