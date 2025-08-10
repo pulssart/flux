@@ -512,7 +512,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setAddOpen(true)}
-                  aria-label="Ajouter un flux"
+                  aria-label={t(lang, "addFeed")}
+                  title={t(lang, "addFeed")}
                 >
                   <Plus size={16} />
                 </Button>
@@ -521,7 +522,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                   size="icon"
                   className="h-8 w-8"
                   onClick={addFolder}
-                  aria-label="Ajouter un dossier"
+                  aria-label={t(lang, "addFolder")}
+                  title={t(lang, "addFolder")}
                 >
                   <FolderPlus size={16} />
                 </Button>
@@ -530,7 +532,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setSettingsOpen(true)}
-                  aria-label="Réglages"
+                  aria-label={t(lang, "settingsTooltip")}
+                  title={t(lang, "settingsTooltip")}
                 >
                   <Settings2 size={16} />
                 </Button>

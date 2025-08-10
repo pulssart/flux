@@ -284,10 +284,10 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
               type="button"
               className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-foreground hover:text-background transition-colors"
               onClick={() => void playDigestForToday()}
-              title="Lire l'actualité du jour"
+              title={t(lang, "playDailyDigest")}
             >
               <Play className="w-4 h-4" />
-              <span>Lire</span>
+              <span>{t(lang, "play")}</span>
             </button>
           )}
           {generatingId === DIGEST_ID && (
@@ -301,10 +301,10 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
               type="button"
               className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-foreground hover:text-background transition-colors"
               onClick={() => stopPlayback()}
-              title="Stop"
+              title={t(lang, "stop")}
             >
               <Square className="w-4 h-4" />
-              <span>Stop</span>
+              <span>{t(lang, "stop")}</span>
             </button>
           )}
         </div>

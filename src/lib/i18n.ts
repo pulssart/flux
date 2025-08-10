@@ -56,6 +56,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     openAiMissing: "Clé OpenAI manquante. Ajoutez-la dans Réglages → Clé API OpenAI.",
     articleExtractFailed: "Échec d'extraction de l'article",
     serverGenError: "Erreur serveur lors de la génération",
+    addFeed: "Ajouter un flux",
+    addFolder: "Ajouter un dossier",
+    settingsTooltip: "Réglages",
+    playAudioSummary: "Lire le résumé audio",
+    reorder: "Réorganiser",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -108,6 +113,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     openAiMissing: "Missing OpenAI key. Add it in Settings → OpenAI API Key.",
     articleExtractFailed: "Failed to extract the article",
     serverGenError: "Server error during generation",
+    addFeed: "Add feed",
+    addFolder: "Add folder",
+    settingsTooltip: "Settings",
+    playAudioSummary: "Play audio summary",
+    reorder: "Reorder",
   },
 };
 
