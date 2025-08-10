@@ -31,13 +31,20 @@ export async function POST(req: NextRequest) {
       if (!html) return "";
       return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     }
-    function extractImageFromEnclosure(anyItem: any): string | undefined {
-      const enc = anyItem?.enclosure;
-      if (enc?.url && (!enc.type || String(enc.type).startsWith("image/"))) return String(enc.url);
-      const media = anyItem["media:content"] || anyItem["media:thumbnail"] || anyItem["itunes:image"];
+    function extractImageFromEnclosure(anyItem: unknown): string | undefined {
+      if (!anyItem || typeof anyItem !== "object") return undefined;
+      const obj = anyItem as Record<string, unknown> & { enclosure?: { url?: unknown; type?: unknown } };
+      const enc = obj.enclosure;
+      if (enc && typeof enc === "object") {
+        const url = (enc as { url?: unknown }).url;
+        const type = (enc as { type?: unknown }).type;
+        if (typeof url === "string" && (!type || String(type).startsWith("image/"))) return url;
+      }
+      const media = (obj as Record<string, unknown>)["media:content"] || (obj as Record<string, unknown>)["media:thumbnail"] || (obj as Record<string, unknown>)["itunes:image"];
       if (typeof media === "string") return media;
       if (media && typeof media === "object") {
-        const u = media.url || media.href || (media["$"] && media["$"]?.url);
+        const m = media as Record<string, unknown> & { url?: unknown; href?: unknown; $?: { url?: unknown } };
+        const u = (typeof m.url === "string" ? m.url : undefined) || (typeof m.href === "string" ? m.href : undefined) || (m.$ && typeof m.$.url === "string" ? m.$.url : undefined);
         if (typeof u === "string") return u;
       }
       return undefined;
@@ -50,11 +57,13 @@ export async function POST(req: NextRequest) {
       for (const res of results) {
         if (res.status !== "fulfilled") continue;
         for (let idx = 0; idx < (res.value.items || []).length; idx++) {
-          const it: any = res.value.items[idx];
+           const it = res.value.items[idx] as Parser.Item;
           const title = String(it.title || "Sans titre");
           const link = typeof it.link === "string" ? it.link : undefined;
           const pubDate = (it.isoDate as string) || (it.pubDate as string) || undefined;
-          const contentSnippet = String(it.contentSnippet || stripHtml((it["content:encoded"] as string) || (it.content as string) || "")).slice(0, 420);
+           const contentEncoded = (it as unknown as Record<string, unknown>)["content:encoded"] as unknown;
+           const contentStr = typeof it.content === "string" ? it.content : (typeof contentEncoded === "string" ? contentEncoded : "");
+           const contentSnippet = String(it.contentSnippet || stripHtml(contentStr)).slice(0, 420);
           const image = extractImageFromEnclosure(it);
           items.push({ title, link, pubDate, contentSnippet, image });
         }

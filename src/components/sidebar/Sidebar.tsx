@@ -93,12 +93,13 @@ function exportAllData() {
   };
 }
 
-function importAllData(json: any) {
+type ImportData = { feeds?: unknown; folders?: unknown; settings?: { aiKey?: unknown; aiVoice?: unknown; lang?: unknown } };
+function importAllData(json: ImportData) {
   try {
     if (!json || typeof json !== "object") throw new Error("invalid");
-    const feeds = Array.isArray(json.feeds) ? json.feeds : [];
-    const folders = Array.isArray(json.folders) ? json.folders : [];
-    const settings = json.settings && typeof json.settings === "object" ? json.settings : {};
+    const feeds = Array.isArray(json.feeds) ? (json.feeds as FeedInfo[]) : [];
+    const folders = Array.isArray(json.folders) ? (json.folders as FolderInfo[]) : [];
+    const settings = json.settings && typeof json.settings === "object" ? (json.settings as { aiKey?: unknown; aiVoice?: unknown; lang?: unknown }) : {};
 
     // bascule state
     localStorage.setItem("flux:feeds", JSON.stringify(feeds));
@@ -215,8 +216,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               if (!res.ok) return;
               const data = (await res.json()) as { items?: Array<{ id: string; title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string }>; };
               const items = (data.items || []).map((it) => ({ ...it, source: f.url }));
-              saveFeedItemsToCache(f.url, items as any);
-              void cacheImagesForFeed(f.url, items as any);
+              saveFeedItemsToCache(f.url, items);
+              void cacheImagesForFeed(f.url, items);
             } catch {}
           })
         );

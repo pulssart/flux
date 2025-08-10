@@ -235,7 +235,7 @@ async function summarizeWithGPT5(input: string, lang: string, clientKey?: string
     } catch {}
     throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
   }
-  const json = (await res.json()) as any;
+  const json: unknown = await res.json();
   const text = extractTextFromResponses(json);
   if (!text) {
     const details = {
@@ -283,7 +283,7 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
     } catch {}
     throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
   }
-  const json = (await res.json()) as any;
+  const json: unknown = await res.json();
   const text = extractTextFromResponses(json);
   if (!text) {
     const details = {
@@ -295,31 +295,46 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
   return text.trim();
 }
 
-function extractTextFromResponses(json: any): string {
-  if (!json) return "";
-  if (typeof json.output_text === "string" && json.output_text.trim()) return json.output_text;
+function extractTextFromResponses(json: unknown): string {
+  if (!json || typeof json !== "object") return "";
+  // output_text
+  const outputText = (json as { output_text?: unknown }).output_text;
+  if (typeof outputText === "string" && outputText.trim()) return outputText;
   // responses.output[].content[].text
-  const outputArr = Array.isArray(json.output) ? json.output : [];
+  const outputArr = Array.isArray((json as { output?: unknown }).output)
+    ? ((json as { output?: unknown }).output as unknown[])
+    : [];
   for (const o of outputArr) {
-    const content = Array.isArray(o?.content) ? o.content : [];
+    const content = Array.isArray((o as { content?: unknown }).content)
+      ? ((o as { content?: unknown }).content as unknown[])
+      : [];
     for (const c of content) {
-      if (typeof c?.text === "string" && c.text.trim()) return c.text;
-      if (Array.isArray(c?.content)) {
-        for (const cc of c.content) {
-          if (typeof cc?.text === "string" && cc.text.trim()) return cc.text;
-        }
+      const cText = (c as { text?: unknown }).text;
+      if (typeof cText === "string" && cText.trim()) return cText;
+      const nested = Array.isArray((c as { content?: unknown }).content)
+        ? ((c as { content?: unknown }).content as unknown[])
+        : [];
+      for (const cc of nested) {
+        const nText = (cc as { text?: unknown }).text;
+        if (typeof nText === "string" && nText.trim()) return nText;
       }
     }
   }
   // sometimes under json.content[] directly
-  const contentArr = Array.isArray(json.content) ? json.content : [];
+  const contentArr = Array.isArray((json as { content?: unknown }).content)
+    ? ((json as { content?: unknown }).content as unknown[])
+    : [];
   for (const c of contentArr) {
-    if (typeof c?.text === "string" && c.text.trim()) return c.text;
+    const cText = (c as { text?: unknown }).text;
+    if (typeof cText === "string" && cText.trim()) return cText;
   }
   // chat completions fallback shapes
-  const choice = json?.choices?.[0];
-  if (choice?.message?.content && typeof choice.message.content === "string" && choice.message.content.trim()) return choice.message.content;
-  if (choice?.text && typeof choice.text === "string" && choice.text.trim()) return choice.text;
+  const choices = (json as { choices?: unknown }).choices;
+  const choice = Array.isArray(choices) ? (choices[0] as unknown) : undefined;
+  const messageContent = (choice as { message?: { content?: unknown } })?.message?.content;
+  if (typeof messageContent === "string" && messageContent.trim()) return messageContent;
+  const choiceText = (choice as { text?: unknown })?.text;
+  if (typeof choiceText === "string" && choiceText.trim()) return choiceText;
   return "";
 }
 

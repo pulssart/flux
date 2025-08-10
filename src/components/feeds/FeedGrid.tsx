@@ -127,7 +127,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, voice: (localStorage.getItem("flux:ai:voice") || undefined) }),
       });
-      const errJson = !res.ok ? await safeJson(res) : null;
+      const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
       if (!res.ok) {
         const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
         if (res.status === 401) {
@@ -189,7 +189,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, sourceTitle, lang, apiKey: apiKey || undefined, voice }),
       });
-      const errJson = !res.ok ? await safeJson(res) : null;
+      const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
       if (!res.ok) {
         const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
         if (res.status === 401) {
@@ -254,10 +254,10 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     for (const src of Object.keys(bySource)) {
       const itemsForSrc = bySource[src].map((x) => ({ ...x, source: src }));
       saveFeedItemsToCache(src, itemsForSrc);
-      void cacheImagesForFeed(src, itemsForSrc as any);
+      void cacheImagesForFeed(src, itemsForSrc);
     }
     // Fallback global pour les pages sans source identifiée
-    void cacheImagesForItems(allArticles as any);
+    void cacheImagesForItems(allArticles);
   }
 
   if (isLoading || (!data && isValidating)) {
@@ -757,8 +757,9 @@ function useImageLuminance(imageUrl?: string) {
 // Ancien handler conservé si besoin ailleurs
 async function handlePlayArticle() {}
 
-async function safeJson(res: Response): Promise<any | null> {
-  try { return await res.json(); } catch { return null; }
+type JsonUnknown = unknown;
+async function safeJson(res: Response): Promise<JsonUnknown | null> {
+  try { return (await res.json()) as unknown; } catch { return null; }
 }
 
 function findSourceForLink(link: string, sources: string[]): string | null {
