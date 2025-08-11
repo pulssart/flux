@@ -19,11 +19,13 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<string>("");
   const [dateStr, setDateStr] = useState<string>("");
+  const [loadingStep, setLoadingStep] = useState<number>(0);
 
   useEffect(() => {
     if (!open || !article?.link) return;
     setLoading(true);
     setSummary("");
+    setLoadingStep(0);
     try {
       setDateStr(article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : "");
     } catch { setDateStr(""); }
@@ -32,6 +34,8 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
       try {
         let apiKey = "";
         try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+        // petit carousel de messages pendant le fetch
+        const interval = setInterval(() => setLoadingStep((s) => (s + 1) % 6), 1200);
         const res = await fetch("/api/ai/summarize-tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -42,6 +46,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         if (!res.ok) throw new Error(json?.error || "summary failed");
         const text = (json?.text as string) || "";
         setSummary(text);
+        clearInterval(interval);
       } catch (e) {
         setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");
       } finally {
@@ -77,7 +82,9 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
           <div className={`px-6 pb-4 pt-0 text-[13px] opacity-70`}>{dateStr}</div>
           <div className={`px-5 pb-6 pt-2 flex-1 overflow-y-auto`}> 
             {loading ? (
-              <div className="py-10 text-center text-sm opacity-70">Chargement…</div>
+              <div className="py-16 text-center text-sm opacity-80 select-none">
+                <LoadingMessages lang={lang} step={loadingStep} />
+              </div>
             ) : (
               <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
                 <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none whitespace-pre-wrap">
@@ -95,6 +102,27 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
       </DialogContent>
     </Dialog>
   );
+}
+
+function LoadingMessages({ lang, step }: { lang: "fr" | "en"; step: number }) {
+  const msgsFr = [
+    "On enlève les pubs et on garde l'essentiel…",
+    "On lit vite, on résume mieux…",
+    "On retire les chiffres ronflants…",
+    "On remet les infos dans l'ordre…",
+    "On chasse le superflu…",
+    "On polit les phrases pour vous…",
+  ];
+  const msgsEn = [
+    "Stripping ads, keeping the signal…",
+    "Skimming fast, summarizing better…",
+    "Deflating hype, keeping facts…",
+    "Putting the story back in order…",
+    "Trimming the fluff…",
+    "Polishing sentences for you…",
+  ];
+  const arr = lang === "fr" ? msgsFr : msgsEn;
+  return <span>{arr[step % arr.length]}</span>;
 }
 
 
