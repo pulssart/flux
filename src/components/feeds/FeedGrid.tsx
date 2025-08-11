@@ -160,13 +160,10 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         return;
       }
       const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
-      const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+      const ttsRes = await fetch("/api/tts", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ model: "gpt-4o-mini-tts", input: json.text, voice, format: "mp3" }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: json.text, lang, apiKey, voice }),
       });
       if (!ttsRes.ok) {
         const e = await ttsRes.text().catch(() => "");
