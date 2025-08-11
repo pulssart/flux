@@ -15,7 +15,11 @@ export default function Home() {
 
   const gridStyle = useMemo(() => {
     const width = collapsed ? 56 : sidebarWidth;
-    return { gridTemplateColumns: `${width}px 1fr` } as React.CSSProperties;
+    return {
+      gridTemplateColumns: `${width}px 1fr`,
+      // variable CSS pour la largeur de la sidebar (utilisée par l'overlay d'arrière-plan)
+      ["--sidebar-w" as any]: `${width}px`,
+    } as React.CSSProperties;
   }, [collapsed, sidebarWidth]);
 
   return (
@@ -31,7 +35,7 @@ export default function Home() {
         onResize={(w) => setSidebarWidth(Math.max(200, Math.min(520, Math.round(w))))}
         onFeedsChanged={() => setFeedsVersion((v) => v + 1)}
       />
-      <main className="p-6">
+      <main className="p-6" id="flux-main">
         <Onboarding />
         {showOverview ? (
           <Overview />
