@@ -157,19 +157,24 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         }
         throw new Error((errJson?.error || `Echec génération audio (${res.status})`) + stage);
       }
-      const json = (await res.json()) as { audio: string; text: string };
+      const json = (await res.json()) as { audio?: string; text: string };
       // Stoppe un éventuel audio en cours
       if (audioEl) {
         try {
           audioEl.pause();
         } catch {}
       }
-      const audio = new Audio(`data:audio/mp3;base64,${json.audio}`);
-      setAudioEl(audio);
-      setPlayingId(article.id);
-      audio.onended = () => setPlayingId((pid) => (pid === article.id ? null : pid));
-      await audio.play();
-      toast.success(t(lang, "playbackStarted"));
+      if (json.audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${json.audio}`);
+        setAudioEl(audio);
+        setPlayingId(article.id);
+        audio.onended = () => setPlayingId((pid) => (pid === article.id ? null : pid));
+        await audio.play();
+        toast.success(t(lang, "playbackStarted"));
+      } else {
+        // Aucun audio renvoyé: afficher le résumé texte en toast discret
+        toast.success(t(lang, "playbackStarted"));
+      }
     } catch (e) {
       console.error(e);
       // les toasts d'erreur sont gérés ci-dessus

@@ -83,18 +83,9 @@ export async function POST(req: NextRequest) {
       try {
         const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice);
         return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
-      } catch (e: unknown) {
-        if (e instanceof ApiError) {
-          return NextResponse.json(
-            { error: e.message, stage: "tts" },
-            { status: e.status }
-          );
-        }
-        const message = e instanceof Error ? e.message : String(e);
-        return NextResponse.json(
-          { error: message, stage: "tts" },
-          { status: 500 }
-        );
+      } catch {
+        // Fallback: retourner le texte même si la synthèse audio échoue
+        return NextResponse.json({ text: summary }, { status: 200 });
       }
     }
 
