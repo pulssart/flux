@@ -13,45 +13,50 @@ type ReaderModalProps = {
   article: { title: string; link?: string; pubDate?: string } | null;
 };
 
-type ArticlePayload = { title?: string | null; date?: string | null; contentHtml?: string };
-
 export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   const [lang] = useLang();
   const { resolvedTheme } = useTheme();
   const [loading, setLoading] = useState(false);
-  const [payload, setPayload] = useState<ArticlePayload | null>(null);
+  const [summary, setSummary] = useState<string>("");
+  const [dateStr, setDateStr] = useState<string>("");
 
   useEffect(() => {
     if (!open || !article?.link) return;
     setLoading(true);
-    setPayload(null);
+    setSummary("");
+    try {
+      setDateStr(article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : "");
+    } catch { setDateStr(""); }
     const controller = new AbortController();
-    fetch("/api/article", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: article.link }),
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("fail");
-        return (await res.json()) as ArticlePayload;
-      })
-      .then((json) => setPayload(json))
-      .catch(() => setPayload({ title: article.title, date: article.pubDate, contentHtml: undefined }))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        let apiKey = "";
+        try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+        const res = await fetch("/api/ai/summarize-tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined }),
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || "summary failed");
+        const text = (json?.text as string) || "";
+        setSummary(text);
+      } catch (e) {
+        setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");
+      } finally {
+        setLoading(false);
+      }
+    })();
     return () => controller.abort();
-  }, [open, article?.link, article?.pubDate, article?.title]);
+  }, [open, article?.link, article?.pubDate, lang]);
 
   const themeClass = useMemo(() => {
     if (resolvedTheme === "dark") return "bg-[#0b0b0b] text-[#e5e5e5]";
     return "bg-white text-black";
   }, [resolvedTheme]);
 
-  const dateStr = useMemo(() => {
-    const d = article?.pubDate || payload?.date || null;
-    if (!d) return "";
-    try { return format(new Date(d), "d MMM yyyy", { locale: fr }); } catch { return d; }
-  }, [article?.pubDate, payload?.date]);
+  // dateStr set in effect
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,24 +71,21 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col shadow-2xl shadow-black/20`}> 
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
-              {article?.title || payload?.title || ""}
+              {article?.title || ""}
             </DialogTitle>
           </DialogHeader>
           <div className={`px-6 pb-4 pt-0 text-[13px] opacity-70`}>{dateStr}</div>
           <div className={`px-5 pb-6 pt-2 flex-1 overflow-y-auto`}> 
             {loading ? (
               <div className="py-10 text-center text-sm opacity-70">Chargement…</div>
-            ) : payload?.contentHtml ? (
-              <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
-                <article
-                  className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none prose-pre:overflow-x-auto"
-                  dangerouslySetInnerHTML={{ __html: payload.contentHtml || "" }}
-                />
-              </div>
             ) : (
               <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
                 <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none whitespace-pre-wrap">
-                  {article?.title}
+                  {summary
+                    ? summary.split(/\n\n+/).map((block, i) => (
+                        <p key={i}>{block}</p>
+                      ))
+                    : null}
                 </article>
               </div>
             )}
