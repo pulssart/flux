@@ -458,7 +458,7 @@ async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, cl
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
+      model: "tts-1-hd",
       input,
       voice,
       format: "mp3",

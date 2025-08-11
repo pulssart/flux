@@ -75,7 +75,7 @@ async function ttsWithOpenAI(input: string, apiKey: string, clientVoice?: string
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: "gpt-4o-mini-tts", input, voice, format: "mp3" }),
+      body: JSON.stringify({ model: "tts-1-hd", input, voice, format: "mp3" }),
     });
     if (!res.ok) {
       let errText = "";
