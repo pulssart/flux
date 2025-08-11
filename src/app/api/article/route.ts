@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const allowedTags = new Set(["p", "h1", "h2", "h3", "ul", "ol", "li", "strong", "em", "a", "blockquote", "img", "figure", "figcaption", "code", "pre", "hr"]);
     const allowedAttrs = new Set(["href", "src", "alt", "title", "target", "rel"]);
     $container!.find("*").each((_, el) => {
-      const $el = $(el as unknown as Record<string, unknown>);
+      const $el = $(el as unknown as never);
       const domEl = $el.get(0) as unknown as { tagName?: string; attribs?: Record<string, string> };
       const tag = domEl?.tagName?.toLowerCase?.() || "";
       if (!allowedTags.has(tag)) {
