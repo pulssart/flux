@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
     const key = apiKey || process.env.OPENAI_API_KEY;
     if (!key) return NextResponse.json({ error: "missing api key" }, { status: 401 });
 
-    const audioBase64 = await ttsWithOpenAI(text.slice(0, 4000), key, voice);
+    // Limiter la longueur envoyée au TTS pour tenir dans les timeouts Netlify (≈10-26s)
+    const audioBase64 = await ttsWithOpenAI(text.slice(0, 1800), key, voice);
     return NextResponse.json({ audio: audioBase64 }, { status: 200, headers: corsHeaders() });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -64,8 +65,8 @@ async function ttsWithOpenAI(input: string, apiKey: string, clientVoice?: string
   const voice = resolveVoice(clientVoice);
 
   const controller = new AbortController();
-  // Allonger le timeout: les générations TTS peuvent prendre >10s
-  const timer = setTimeout(() => controller.abort(), 25000);
+  // Timeout un peu plus long, mais attention aux limites Netlify Functions
+  const timer = setTimeout(() => controller.abort(), 30000);
   try {
     const res = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
