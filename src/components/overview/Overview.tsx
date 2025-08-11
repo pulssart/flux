@@ -119,7 +119,7 @@ export function Overview() {
   }
 
   return (
-    <article className="prose dark:prose-invert max-w-3xl mx-auto">
+    <article className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-3xl mx-auto px-3 sm:px-0 leading-relaxed">
       <div className="flex items-center justify-between gap-4 not-prose mb-2">
         <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
           <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
@@ -133,7 +133,7 @@ export function Overview() {
           )}
         </Button>
       </div>
-      <div dangerouslySetInnerHTML={{ __html: content.html }} />
+      <div className="[&_img]:w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:object-cover [&_table]:w-full [&_table]:block [&_table]:overflow-x-auto" dangerouslySetInnerHTML={{ __html: content.html }} />
     </article>
   );
 }
