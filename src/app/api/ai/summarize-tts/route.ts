@@ -20,11 +20,12 @@ type SummarizeTtsBody = {
   apiKey?: string; // optional client-provided key
   voice?: string; // optional client-provided voice
   textOnly?: boolean; // si true, ne retourne que le texte (pas de TTS)
+  mode?: "structured" | "audio"; // structured: pour le lecteur, audio: narration fluide sans sections
 };
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, items, sourceTitle, lang = "fr", apiKey, voice, textOnly } = (await req.json()) as SummarizeTtsBody;
+    const { url, items, sourceTitle, lang = "fr", apiKey, voice, textOnly, mode = "structured" } = (await req.json()) as SummarizeTtsBody;
     if (!(apiKey || process.env.OPENAI_API_KEY)) {
       return NextResponse.json({ error: "Clé OpenAI manquante. Renseignez-la dans Réglages." }, { status: 401 });
     }
@@ -61,7 +62,9 @@ export async function POST(req: NextRequest) {
 
       let summary: string;
       try {
-        summary = await summarizeWithGPT5(limited, lang, apiKey);
+        summary = mode === "audio"
+          ? await summarizeForAudio(limited, lang, apiKey)
+          : await summarizeStructured(limited, lang, apiKey);
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -201,7 +204,7 @@ function extractMainText(html: string): string {
   return best;
 }
 
-async function summarizeWithGPT5(input: string, lang: string, clientKey?: string): Promise<string> {
+async function summarizeStructured(input: string, lang: string, clientKey?: string): Promise<string> {
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
@@ -229,6 +232,58 @@ async function summarizeWithGPT5(input: string, lang: string, clientKey?: string
       );
 
   // Utiliser l'API Responses pour gpt-5-nano
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-nano",
+      input: `${prompt}\n\n${input}`,
+    }),
+  });
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
+  }
+  const json: unknown = await res.json();
+  const text = extractTextFromResponses(json);
+  if (!text) {
+    const details = {
+      keys: Object.keys(json || {}),
+      preview: JSON.stringify(json)?.slice(0, 300),
+    };
+    throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
+  }
+  return text.trim();
+}
+
+async function summarizeForAudio(input: string, lang: string, clientKey?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const prompt =
+    lang === "fr"
+      ? (
+        "Nettoie d'abord le texte source pour retirer publicités, appels à l'action, mentions de cookies, navigation et tout contenu non éditorial.\n\n" +
+        "À partir de ce texte propre, écris un RÉSUMÉ NARRATIF en français adapté à une lecture audio: 6 à 10 phrases, fluides, sans titres ni puces, sans sections nommées, sans emoji. " +
+        "Va à l'essentiel, intègre les faits clés (noms, chiffres utiles) et assure une progression naturelle avec de courtes transitions. " +
+        "Évite les citations longues; si nécessaire, intègre une courte citation au sein d'une phrase. " +
+        "Longueur ciblée: 700 à 1200 caractères."
+      )
+      : (
+        "First, clean the source text to remove ads/CTAs/cookies/navigation and any non‑editorial content.\n\n" +
+        "From this cleaned text, write a NARRATIVE SUMMARY in English suitable for audio: 6–10 sentences, fluent, no headings, no bullets, no section labels, no emojis. " +
+        "Focus on key facts (proper nouns, meaningful numbers) and provide a natural flow with brief transitions. " +
+        "Avoid long quotes; if needed, weave a short quote into a sentence. " +
+        "Target length: 700–1200 characters."
+      );
+
   const res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {

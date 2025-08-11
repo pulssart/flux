@@ -136,13 +136,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     if (!article.link) return;
     setGeneratingId(article.id);
     try {
-      // 1) Récupération du résumé (texte uniquement) via notre API (rapide)
+      // 1) Récupération d'un vrai résumé narratif pour l'audio (pas la version structurée du lecteur)
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
       const res = await fetch("/api/ai/summarize-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, textOnly: true }),
+        body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, textOnly: true, mode: "audio" }),
       });
       const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
       if (!res.ok) {
