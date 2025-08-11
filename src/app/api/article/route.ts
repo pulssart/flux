@@ -87,8 +87,18 @@ export async function POST(req: NextRequest) {
       if (href) $(el).attr("href", absoluteUrl(href, url));
     });
 
+    // Heuristic: if very few <p> tags, convert double <br> blocks to paragraphs to preserve line breaks
+    try {
+      const pCount = $container!.find("p").length;
+      if (pCount < 2) {
+        const inner = $container!.html() || "";
+        const normalized = `<p>${inner.replace(/(?:\s*<br\s*\/?\>\s*){2,}/gi, '</p><p>')}</p>`;
+        $container!.html(normalized);
+      }
+    } catch {}
+
     // Keep only safe tags/attrs
-    const allowedTags = new Set(["p", "h1", "h2", "h3", "ul", "ol", "li", "strong", "em", "a", "blockquote", "img", "figure", "figcaption", "code", "pre", "hr"]);
+    const allowedTags = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "strong", "em", "a", "blockquote", "img", "figure", "figcaption", "code", "pre", "hr", "br", "span", "mark", "u", "i", "b"]);
     const allowedAttrs = new Set(["href", "src", "alt", "title", "target", "rel"]);
     $container!.find("*").each((_, el) => {
       const $el = $(el as unknown as never);
