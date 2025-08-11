@@ -76,11 +76,12 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={
-          "p-0 w-[min(96vw,1100px)] max-w-[96vw] border-0 bg-transparent shadow-none data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+          "p-0 w-[min(98vw,1400px)] max-w-[98vw] border-0 bg-transparent shadow-none data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
         }
+        overlayClassName="bg-[rgba(0,0,0,0.6)] backdrop-blur-sm"
         showCloseButton
       >
-        <div className={`rounded-2xl border ${theme === "dark" ? "border-white/10" : "border-black/10"} ${themeClass} max-h-[90vh] flex flex-col`}> 
+        <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col`}> 
           <DialogHeader className="p-5 pb-0">
             <DialogTitle className="text-2xl leading-tight">{article?.title || payload?.title || ""}</DialogTitle>
           </DialogHeader>
