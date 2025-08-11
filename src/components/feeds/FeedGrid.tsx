@@ -160,17 +160,21 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         return;
       }
       const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
+      const controller = new AbortController();
+      const tTimeout = setTimeout(() => controller.abort(), 26000);
       const ttsRes = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: json.text, lang, apiKey, voice }),
+        signal: controller.signal,
       });
+      clearTimeout(tTimeout);
       if (!ttsRes.ok) {
         const e = await ttsRes.text().catch(() => "");
         throw new Error(`TTS failed: ${e || ttsRes.status}`);
       }
-      const arrayBuf = await ttsRes.arrayBuffer();
-      const blob = new Blob([arrayBuf], { type: "audio/mpeg" });
+      const ttsJson = (await ttsRes.json()) as { audio: string };
+      const blob = base64ToBlob(ttsJson.audio, "audio/mpeg");
       const url = URL.createObjectURL(blob);
       if (audioEl) {
         try { audioEl.pause(); } catch {}
@@ -865,6 +869,14 @@ function getHeaderTitle(list: { title: string; url: string }[]): string {
   const names = list.map((x) => x.title || x.url);
   if (names.length <= 3) return names.join(", ");
   return `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
+}
+
+function base64ToBlob(base64: string, type = "application/octet-stream"): Blob {
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes.buffer], { type });
 }
 
 

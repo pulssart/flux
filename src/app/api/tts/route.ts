@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+}
+
 function corsHeaders(): HeadersInit {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -60,7 +64,8 @@ async function ttsWithOpenAI(input: string, apiKey: string, clientVoice?: string
   const voice = resolveVoice(clientVoice);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  // Allonger le timeout: les générations TTS peuvent prendre >10s
+  const timer = setTimeout(() => controller.abort(), 25000);
   try {
     const res = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
