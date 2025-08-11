@@ -128,8 +128,8 @@ export function Overview() {
       });
       clearTimeout(t);
       if (!res.ok) {
-        const err = (await res.json().catch(() => ({} as any))) as { error?: string; status?: number; info?: unknown };
-        const msg = err?.error || `HTTP ${res.status}`;
+        const err = (await res.json().catch(() => ({}) as unknown)) as { error?: string; status?: number; info?: unknown };
+        const msg = typeof err?.error === "string" && err.error ? err.error : `HTTP ${res.status}`;
         throw new Error(msg);
       }
       const j = (await res.json()) as { results: Array<{ id: string; thumb: string | null; small: string | null; regular: string | null; full?: string | null }>; totalPages?: number; page?: number };

@@ -15,11 +15,12 @@ export default function Home() {
 
   const gridStyle = useMemo(() => {
     const width = collapsed ? 56 : sidebarWidth;
-    return {
+    const style: React.CSSProperties & Record<string, string> = {
       gridTemplateColumns: `${width}px 1fr`,
       // variable CSS pour la largeur de la sidebar (utilisée par l'overlay d'arrière-plan)
-      ["--sidebar-w" as any]: `${width}px`,
-    } as React.CSSProperties;
+      "--sidebar-w": `${width}px`,
+    };
+    return style;
   }, [collapsed, sidebarWidth]);
 
   return (
