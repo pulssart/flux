@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect } from "react";
 import { t, useLang } from "@/lib/i18n";
+import { ReaderModal } from "./ReaderModal";
 
 type FeedGridProps = {
   feedIds: string[];
@@ -54,6 +55,20 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const DIGEST_ID = "__digest__";
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [readerOpen, setReaderOpen] = useState(false);
+  const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string } | null>(null);
+
+  useEffect(() => {
+    const on = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { article?: Article } | undefined;
+      if (detail?.article) {
+        setReaderArticle({ title: detail.article.title, link: detail.article.link, pubDate: detail.article.pubDate });
+        setReaderOpen(true);
+      }
+    };
+    window.addEventListener("flux:reader:open", on as EventListener);
+    return () => window.removeEventListener("flux:reader:open", on as EventListener);
+  }, []);
 
   function stopPlayback() {
     try {
@@ -80,6 +95,8 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       return false;
     }
   }
+
+  // util parent non utilisé, remplacé par util locales
 
   function getYouTubeEmbed(url?: string): string | null {
     if (!url) return null;
@@ -391,6 +408,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
           ) : null}
         </DialogContent>
       </Dialog>
+      {/* Gestion ouverture lecteur via event */}
+      {/* Installer le listener une seule fois */}
+      <ReaderModal
+        open={readerOpen}
+        onOpenChange={(o) => setReaderOpen(o)}
+        article={readerArticle}
+      />
     </div>
   );
 }
@@ -423,6 +447,14 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
       const u = new URL(url);
       const h = u.hostname.replace(/^www\./, "");
       return h === "youtube.com" || h === "youtu.be" || h === "m.youtube.com" || h.endsWith("youtube-nocookie.com");
+    } catch { return false; }
+  };
+  const localIsProductHuntUrl = (url?: string) => {
+    try {
+      if (!url) return false;
+      const u = new URL(url);
+      const h = u.hostname.replace(/^www\./, "");
+      return h === "producthunt.com" || h.endsWith(".producthunt.com");
     } catch { return false; }
   };
   const [lang] = useLang();
@@ -460,6 +492,10 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
         if (localIsYouTubeUrl(article.link)) {
           e.preventDefault();
           onOpenVideo();
+        } else if (!localIsProductHuntUrl(article.link)) {
+          e.preventDefault();
+          const custom = new CustomEvent("flux:reader:open", { detail: { article } });
+          window.dispatchEvent(custom);
         }
       }}
     >
@@ -536,7 +572,18 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
             </Tooltip>
           )}
         </div>
-        <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+        <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden"
+          onClick={(e) => {
+            // Ouverture lecteur quand on clique sur la carte (hors boutons)
+            if (!localIsYouTubeUrl(article.link) && !localIsProductHuntUrl(article.link)) {
+              e.preventDefault();
+              e.stopPropagation();
+              // Lever un évènement custom que le parent va écouter
+              const custom = new CustomEvent("flux:reader:open", { detail: { article } });
+              window.dispatchEvent(custom);
+            }
+          }}
+        >
           <div className="text-xs text-muted-foreground shrink-0">
             {article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : null}
           </div>
@@ -561,6 +608,14 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
       const u = new URL(url);
       const h = u.hostname.replace(/^www\./, "");
       return h === "youtube.com" || h === "youtu.be" || h === "m.youtube.com" || h.endsWith("youtube-nocookie.com");
+    } catch { return false; }
+  };
+  const localIsProductHuntUrl = (url?: string) => {
+    try {
+      if (!url) return false;
+      const u = new URL(url);
+      const h = u.hostname.replace(/^www\./, "");
+      return h === "producthunt.com" || h.endsWith(".producthunt.com");
     } catch { return false; }
   };
   const [lang] = useLang();
@@ -603,6 +658,10 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
         if (localIsYouTubeUrl(article.link)) {
           e.preventDefault();
           onOpenVideo();
+        } else if (!localIsProductHuntUrl(article.link)) {
+          e.preventDefault();
+          const custom = new CustomEvent("flux:reader:open", { detail: { article } });
+          window.dispatchEvent(custom);
         }
       }}
     >
