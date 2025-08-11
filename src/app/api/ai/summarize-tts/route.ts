@@ -19,11 +19,12 @@ type SummarizeTtsBody = {
   lang?: string; // "fr" | "en" | ...
   apiKey?: string; // optional client-provided key
   voice?: string; // optional client-provided voice
+  textOnly?: boolean; // si true, ne retourne que le texte (pas de TTS)
 };
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, items, sourceTitle, lang = "fr", apiKey, voice } = (await req.json()) as SummarizeTtsBody;
+    const { url, items, sourceTitle, lang = "fr", apiKey, voice, textOnly } = (await req.json()) as SummarizeTtsBody;
     if (!(apiKey || process.env.OPENAI_API_KEY)) {
       return NextResponse.json({ error: "Clé OpenAI manquante. Renseignez-la dans Réglages." }, { status: 401 });
     }
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (url && typeof url === "string") {
       let html: string;
       try {
-        html = await fetchWithTimeout(url, 12000);
+        html = await fetchWithTimeout(url, 8000);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         return NextResponse.json(
@@ -74,9 +75,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      let audioBase64: string;
+      if (textOnly) {
+        return NextResponse.json({ text: summary }, { status: 200 });
+      }
+
       try {
-        audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice);
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice);
+        return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -90,8 +95,6 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
-
-      return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
     }
 
     // Branche 2: digest du jour depuis liste de titres/extraits

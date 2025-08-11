@@ -40,7 +40,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         const res = await fetch("/api/ai/summarize-tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined }),
+          body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, textOnly: true }),
           signal: controller.signal,
         });
         const json = await res.json();
@@ -75,7 +75,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         showCloseButton={false}
       >
         <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col shadow-2xl shadow-black/20`}> 
-          <DialogHeader className="p-6 pb-2">
+          <DialogHeader className="p-6 pb-2" aria-describedby={undefined}>
             <DialogTitle className="text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
               {article?.title || ""}
             </DialogTitle>
