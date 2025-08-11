@@ -108,13 +108,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               </div>
             ) : (
               <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
-                <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none whitespace-pre-wrap">
-                  {summary
-                    ? summary.split(/\n\n+/).map((block, i) => (
-                        <p key={i}>{block}</p>
-                      ))
-                    : null}
-                </article>
+                <StructuredSummary lang={lang} summary={summary} imageUrl={imageUrl} />
               </div>
             )}
           </div>
@@ -144,6 +138,57 @@ function LoadingMessages({ lang, step }: { lang: "fr" | "en"; step: number }) {
   ];
   const arr = lang === "fr" ? msgsFr : msgsEn;
   return <span>{arr[step % arr.length]}</span>;
+}
+
+function StructuredSummary({ lang, summary, imageUrl }: { lang: "fr" | "en"; summary: string; imageUrl?: string }) {
+  if (!summary) return null;
+  // Découpe en sections sur mots-clés connus
+  const lines = summary.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  let tldr = "";
+  const bullets: string[] = [];
+  const rest: string[] = [];
+  let mode: "tldr" | "bullets" | "rest" = "tldr";
+  for (const l of lines) {
+    const low = l.toLowerCase();
+    if (/^tl;?dr/.test(low)) { tldr = l.replace(/^tl;?dr[:\-]?\s*/i, ""); mode = "bullets"; continue; }
+    if (/^(points clés|key points)/i.test(low)) { mode = "bullets"; continue; }
+    if (/^(contexte|context|à suivre|what to watch|quote|citation)/i.test(low)) { mode = "rest"; rest.push(l); continue; }
+    if (mode === "bullets" && /^[-•]/.test(l)) { bullets.push(l.replace(/^[-•]\s*/, "")); continue; }
+    if (mode === "tldr") { tldr = (tldr ? tldr + " " : "") + l; continue; }
+    rest.push(l);
+  }
+
+  return (
+    <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none">
+      {imageUrl ? (
+        <div className="mb-6">
+          <img
+            src={`/api/proxy-image/${btoa(imageUrl).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
+            alt=""
+            className="w-full max-h-80 object-cover rounded"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      ) : null}
+      {tldr ? (
+        <p><strong>TL;DR:</strong> {tldr}</p>
+      ) : null}
+      {/* espace après TL;DR */}
+      {tldr ? <div className="h-4" /> : null}
+      {bullets.length ? (
+        <ul>
+          {bullets.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      ) : null}
+      {/* espace après bullets */}
+      {bullets.length ? <div className="h-4" /> : null}
+      {rest.map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+    </article>
+  );
 }
 
 
