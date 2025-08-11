@@ -76,19 +76,13 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
       >
         <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col shadow-2xl shadow-black/20`}> 
           <DialogHeader className="p-6 pb-2" aria-describedby={undefined}>
-            <DialogTitle className="text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
-              {article?.title || ""}
-            </DialogTitle>
+            <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
+              <DialogTitle className="text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
+                {article?.title || ""}
+              </DialogTitle>
+            </div>
           </DialogHeader>
-          <div className={`px-6 pb-4 pt-0 text-[13px] opacity-70 flex items-center gap-3`}>
-            {imageUrl ? (
-              <img
-                src={`/api/proxy-image/${btoa(imageUrl).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
-                alt=""
-                className="h-6 w-6 rounded object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : null}
+          <div className={`mx-auto w-full max-w-[900px] px-1 sm:px-2 pb-4 pt-0 text-[13px] opacity-70 flex items-center gap-3`}>
             <span>{dateStr}</span>
             {article?.link ? (
               <a
@@ -147,46 +141,52 @@ function StructuredSummary({ lang, summary, imageUrl }: { lang: "fr" | "en"; sum
   let tldr = "";
   const bullets: string[] = [];
   const rest: string[] = [];
-  let mode: "tldr" | "bullets" | "rest" = "tldr";
+  let quote: string | null = null;
+  let mode: "tldr" | "bullets" | "rest" | "quote" = "tldr";
   for (const l of lines) {
     const low = l.toLowerCase();
     if (/^tl;?dr/.test(low)) { tldr = l.replace(/^tl;?dr[:\-]?\s*/i, ""); mode = "bullets"; continue; }
     if (/^(points clés|key points)/i.test(low)) { mode = "bullets"; continue; }
-    if (/^(contexte|context|à suivre|what to watch|quote|citation)/i.test(low)) { mode = "rest"; rest.push(l); continue; }
+    if (/^(quote|citation)/i.test(low)) { mode = "quote"; quote = l.replace(/^(quote|citation)[:\-]?\s*/i, ""); continue; }
+    if (/^(contexte|context|à suivre|what to watch)/i.test(low)) { mode = "rest"; rest.push(l); continue; }
     if (mode === "bullets" && /^[-•]/.test(l)) { bullets.push(l.replace(/^[-•]\s*/, "")); continue; }
+    if (mode === "quote") { quote = (quote ? quote + " " : "") + l; continue; }
     if (mode === "tldr") { tldr = (tldr ? tldr + " " : "") + l; continue; }
     rest.push(l);
   }
 
   return (
     <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none">
-      {imageUrl ? (
-        <div className="mb-6">
-          <img
-            src={`/api/proxy-image/${btoa(imageUrl).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
-            alt=""
-            className="w-full max-h-80 object-cover rounded"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      ) : null}
-      {tldr ? (
-        <p className="text-muted-foreground"><strong className="font-semibold">TL;DR:</strong> {tldr}</p>
-      ) : null}
-      {/* espace après TL;DR */}
-      {tldr ? <div className="h-4" /> : null}
-      {bullets.length ? (
-        <ul>
-          {bullets.map((b, i) => (
-            <li key={i}>{b}</li>
-          ))}
-        </ul>
-      ) : null}
-      {/* espace après bullets */}
-      {bullets.length ? <div className="h-4" /> : null}
-      {rest.map((p, i) => (
-        <p key={i}>{p}</p>
-      ))}
+      <div className="space-y-4">
+        {imageUrl ? (
+          <div>
+            <img
+              src={`/api/proxy-image/${btoa(imageUrl).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
+              alt=""
+              className="w-full max-h-80 object-cover rounded"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        ) : null}
+        {tldr ? (
+          <p className="text-muted-foreground"><strong className="font-semibold">TL;DR:</strong> {tldr}</p>
+        ) : null}
+        {bullets.length ? (
+          <ul>
+            {bullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        ) : null}
+        {quote ? (
+          <blockquote className="border-l-4 pl-4 italic text-muted-foreground">
+            “{quote}”
+          </blockquote>
+        ) : null}
+        {rest.map((p, i) => (
+          <p key={i}>{p}</p>
+        ))}
+      </div>
     </article>
   );
 }
