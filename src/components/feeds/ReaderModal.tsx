@@ -82,10 +82,12 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         showCloseButton
       >
         <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col`}> 
-          <DialogHeader className="p-5 pb-0">
-            <DialogTitle className="text-2xl leading-tight">{article?.title || payload?.title || ""}</DialogTitle>
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
+              {article?.title || payload?.title || ""}
+            </DialogTitle>
           </DialogHeader>
-          <div className={`px-5 pb-2 pt-1 text-xs opacity-70`}>{dateStr}</div>
+          <div className={`px-6 pb-4 pt-0 text-[13px] opacity-70`}>{dateStr}</div>
           <div className="px-3">
             <div className="flex items-center gap-2 p-2">
               <div className="text-xs opacity-70">Font</div>
@@ -118,12 +120,18 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             {loading ? (
               <div className="py-10 text-center text-sm opacity-70">Chargement…</div>
             ) : payload?.contentHtml ? (
-              <article className="prose prose-neutral max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: payload.contentHtml || "" }} />
+              <div className="mx-auto w-full max-w-[760px] px-1 sm:px-2">
+                <article
+                  className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none prose-pre:overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: payload.contentHtml || "" }}
+                />
+              </div>
             ) : (
-              <article className="prose prose-neutral max-w-none dark:prose-invert whitespace-pre-wrap">
-                {/* Fallback au snippet si jamais */}
-                {article?.title}
-              </article>
+              <div className="mx-auto w-full max-w-[760px] px-1 sm:px-2">
+                <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none whitespace-pre-wrap">
+                  {article?.title}
+                </article>
+              </div>
             )}
           </div>
         </div>
