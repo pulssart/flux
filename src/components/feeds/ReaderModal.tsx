@@ -6,6 +6,7 @@ import { useLang } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 type ReaderModalProps = {
   open: boolean;
@@ -94,6 +95,31 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                 {lang === "fr" ? "Voir l’article original" : "Open original article"}
               </a>
             ) : null}
+            {summary ? (
+              <button
+                type="button"
+                className="text-[12px] underline opacity-80 hover:opacity-100"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    if (!summary) return;
+                    if (navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(summary);
+                    } else {
+                      const ta = document.createElement("textarea");
+                      ta.value = summary;
+                      document.body.appendChild(ta);
+                      ta.select();
+                      document.execCommand("copy");
+                      document.body.removeChild(ta);
+                    }
+                    toast.success(lang === "fr" ? "Résumé copié" : "Summary copied");
+                  } catch {}
+                }}
+              >
+                {lang === "fr" ? "Copier le résumé" : "Copy summary"}
+              </button>
+            ) : null}
           </div>
           <div className={`px-5 pb-6 pt-2 flex-1 overflow-y-auto`}> 
             {loading ? (
@@ -179,7 +205,7 @@ function StructuredSummary({ lang, summary, imageUrl }: { lang: "fr" | "en"; sum
           </ul>
         ) : null}
         {quote ? (
-          <blockquote className="border-l-4 pl-4 italic text-muted-foreground">
+          <blockquote className="border-l-4 pl-4 italic text-muted-foreground text-xl font-semibold">
             “{quote}”
           </blockquote>
         ) : null}
