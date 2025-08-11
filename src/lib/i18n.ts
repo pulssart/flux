@@ -88,6 +88,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     onboardingBack: "Précédent",
     onboardingNext: "Suivant",
     onboardingDone: "Terminer",
+    lastUpdatedLabel: "Dernière mise à jour",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -172,6 +173,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     onboardingBack: "Back",
     onboardingNext: "Next",
     onboardingDone: "Done",
+    lastUpdatedLabel: "Last updated",
   },
 };
 

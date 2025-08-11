@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
@@ -12,6 +12,8 @@ export function Overview() {
   const [lang] = useLang();
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<null | { html: string }>(null);
+  const generatingRef = useRef(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const today = new Date();
   const weekday = format(today, "EEEE", { locale: lang === "fr" ? frLocale : enUS });
@@ -24,11 +26,17 @@ export function Overview() {
       if (saved) {
         const j = JSON.parse(saved) as { html: string; date: string };
         setContent({ html: sanitizeOverviewHtml(j.html, lang, dateTitle) });
+        if (j?.date) {
+          const d = new Date(j.date);
+          if (!isNaN(d.getTime())) setLastUpdated(d);
+        }
       }
     } catch {}
   }, [lang, dateTitle]);
 
   async function generate() {
+    if (generatingRef.current) return;
+    generatingRef.current = true;
     setGenerating(true);
     try {
       // Récupérer la liste des feeds côté client et l'envoyer au backend
@@ -63,6 +71,7 @@ export function Overview() {
           "flux:overview:today",
           JSON.stringify({ html: cleanHtml, date: new Date().toISOString() })
         );
+        setLastUpdated(new Date());
       } catch {}
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -81,18 +90,71 @@ export function Overview() {
         toast.error("Failed to generate");
       }
     } finally {
+      generatingRef.current = false;
       setGenerating(false);
     }
   }
 
+  // Rafraîchissement automatique toutes les 15 minutes, et au retour en visibilité
+  useEffect(() => {
+    const FIFTEEN_MIN = 15 * 60 * 1000;
+
+    const shouldRefreshNow = (): boolean => {
+      try {
+        const saved = localStorage.getItem("flux:overview:today");
+        if (!saved) return true;
+        const j = JSON.parse(saved) as { html?: string; date?: string };
+        if (!j?.date) return true;
+        const last = new Date(j.date).getTime();
+        if (!Number.isFinite(last)) return true;
+        return Date.now() - last >= FIFTEEN_MIN;
+      } catch {
+        return true;
+      }
+    };
+
+    const triggerIfNeeded = () => {
+      if (document.visibilityState !== "visible") return;
+      if (generatingRef.current) return;
+      if (shouldRefreshNow()) {
+        void generate();
+      }
+    };
+
+    // Déclenchement initial si nécessaire
+    triggerIfNeeded();
+
+    // Rafraîchir lors d'un retour en visibilité
+    const onVisibilityChange = () => triggerIfNeeded();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // Intervalle régulier
+    const intervalId = setInterval(() => {
+      triggerIfNeeded();
+    }, FIFTEEN_MIN);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [lang, dateTitle]);
+
   if (!content) {
+    const updatedLabel = lastUpdated
+      ? `${t(lang, "lastUpdatedLabel")}: ${format(lastUpdated, lang === "fr" ? "d MMM yyyy 'à' HH:mm" : "MMM d, yyyy 'at' p", { locale: lang === "fr" ? frLocale : enUS })}`
+      : "";
     return (
       <div className="min-h-[60vh]">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-            <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
-            <span className="first-letter:uppercase">{dateRest}</span>
-          </h1>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+              <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
+              <span className="first-letter:uppercase">{dateRest}</span>
+            </h1>
+            {updatedLabel ? (
+              <p className="mt-1 text-xs text-muted-foreground">{updatedLabel}</p>
+            ) : null}
+          </div>
           <Button onClick={generate} disabled={generating}>
             {generating ? (
               <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {t(lang, "generatingResume")}</span>
@@ -121,10 +183,17 @@ export function Overview() {
   return (
     <article className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-3xl mx-auto px-3 sm:px-0 leading-relaxed">
       <div className="flex items-center justify-between gap-4 not-prose mb-2">
-        <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
-          <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
-          <span className="first-letter:uppercase">{dateRest}</span>
-        </h1>
+        <div>
+          <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
+            <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
+            <span className="first-letter:uppercase">{dateRest}</span>
+          </h1>
+          {lastUpdated ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t(lang, "lastUpdatedLabel")}: {format(lastUpdated, lang === "fr" ? "d MMM yyyy 'à' HH:mm" : "MMM d, yyyy 'at' p", { locale: lang === "fr" ? frLocale : enUS })}
+            </p>
+          ) : null}
+        </div>
         <Button onClick={generate} disabled={generating} variant="outline">
           {generating ? (
             <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {t(lang, "generatingResume")}</span>
