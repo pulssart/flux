@@ -213,20 +213,22 @@ async function summarizeWithGPT5(input: string, lang: string, clientKey?: string
   const prompt =
     lang === "fr"
       ? (
-        "À partir du texte d'un article, produis un résumé structuré en français au format SUIVANT (strict) :\n\n" +
-        "TL;DR: une seule phrase synthétique.\n" +
-        "Points clés:\n- 3 à 6 puces courtes, factuelles et lisibles\n" +
-        "Contexte: 1 à 2 phrases pour situer le sujet.\n" +
+        "À partir du texte d'un article, produis un RÉSUMÉ STRUCTURÉ en français (plus détaillé) au format SUIVANT (strict) :\n\n" +
+        "TL;DR: 1 phrase synthétique.\n" +
+        "Points clés:\n- 6 à 10 puces courtes, factuelles et lisibles (noms propres, chiffres utiles)\n" +
+        "Contexte: 2 à 4 phrases pour situer le sujet (qui, quoi, où, enjeux).\n" +
+        "À suivre: 1 à 3 puces sur les suites possibles ou impacts.\n" +
         "Citation: une courte citation pertinente si disponible (sinon omets cette section).\n\n" +
         "Ne fais pas d'introduction ou de conclusion hors de ces sections. Pas d'emoji."
       )
       : (
-        "From the article text, produce a structured summary in English with the EXACT format below:\n\n" +
-        "TL;DR: one single concise sentence.\n" +
-        "Key points:\n- 3 to 6 short, factual bullets\n" +
-        "Context: 1–2 sentences to situate the topic.\n" +
+        "From the article text, produce a more DETAILED structured summary in English with the EXACT format below:\n\n" +
+        "TL;DR: 1 concise sentence.\n" +
+        "Key points:\n- 6 to 10 short, factual bullets (proper nouns, meaningful numbers)\n" +
+        "Context: 2–4 sentences to frame the story (who, what, where, stakes).\n" +
+        "What to watch: 1–3 bullets on likely follow‑ups or impact.\n" +
         "Quote: a short relevant quote if available (otherwise omit this section).\n\n" +
-        "Do not add intro or outro beyond these sections. No emojis."
+        "Do not add intro/outro beyond these sections. No emojis."
       );
 
   // Utiliser l'API Responses pour gpt-5-nano
