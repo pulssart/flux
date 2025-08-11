@@ -76,11 +76,11 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={
-          "p-0 w-[min(92vw,840px)] max-w-[92vw] border-0 bg-transparent shadow-none data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+          "p-0 w-[min(96vw,1100px)] max-w-[96vw] border-0 bg-transparent shadow-none data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
         }
         showCloseButton
       >
-        <div className={`rounded-2xl overflow-hidden border ${theme === "dark" ? "border-white/10" : "border-black/10"} ${themeClass}`}>
+        <div className={`rounded-2xl border ${theme === "dark" ? "border-white/10" : "border-black/10"} ${themeClass} max-h-[90vh] flex flex-col`}> 
           <DialogHeader className="p-5 pb-0">
             <DialogTitle className="text-2xl leading-tight">{article?.title || payload?.title || ""}</DialogTitle>
           </DialogHeader>
@@ -113,7 +113,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               )}
             </div>
           </div>
-          <div className={`px-5 pb-6 pt-2 ${fontClass}`}>
+          <div className={`px-5 pb-6 pt-2 ${fontClass} flex-1 overflow-y-auto`}> 
             {loading ? (
               <div className="py-10 text-center text-sm opacity-70">Chargement…</div>
             ) : payload?.contentHtml ? (
