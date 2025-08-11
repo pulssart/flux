@@ -171,7 +171,7 @@ function StructuredSummary({ lang, summary, imageUrl }: { lang: "fr" | "en"; sum
         </div>
       ) : null}
       {tldr ? (
-        <p><strong>TL;DR:</strong> {tldr}</p>
+        <p className="text-muted-foreground"><strong className="font-semibold">TL;DR:</strong> {tldr}</p>
       ) : null}
       {/* espace après TL;DR */}
       {tldr ? <div className="h-4" /> : null}

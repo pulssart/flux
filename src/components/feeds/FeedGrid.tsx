@@ -56,13 +56,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const DIGEST_ID = "__digest__";
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
-  const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string } | null>(null);
+  const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string; image?: string } | null>(null);
 
   useEffect(() => {
     const on = (e: Event) => {
       const detail = (e as CustomEvent).detail as { article?: Article } | undefined;
       if (detail?.article) {
-        setReaderArticle({ title: detail.article.title, link: detail.article.link, pubDate: detail.article.pubDate });
+        setReaderArticle({ title: detail.article.title, link: detail.article.link, pubDate: detail.article.pubDate, image: detail.article.image });
         setReaderOpen(true);
       }
     };
