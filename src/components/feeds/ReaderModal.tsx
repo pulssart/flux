@@ -76,9 +76,9 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={
-          "p-0 w-[min(98vw,1400px)] max-w-[98vw] border-0 bg-transparent shadow-none data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+          "p-0 w-[1000px] max-w-[98vw] border-0 bg-transparent shadow-none rounded-none data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
         }
-        overlayClassName="bg-[rgba(0,0,0,0.6)] backdrop-blur-sm"
+        overlayClassName="bg-neutral-100"
         showCloseButton
       >
         <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col`}> 
