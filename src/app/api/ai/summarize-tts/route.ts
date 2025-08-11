@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
       }
 
       const normalized = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim();
-      const limited = normalized.slice(0, 20000);
+      const cleaned = sanitizeContent(normalized, lang);
+      const limited = cleaned.slice(0, 20000);
 
       let summary: string;
       try {
@@ -216,7 +217,8 @@ async function summarizeWithGPT5(input: string, lang: string, clientKey?: string
   const prompt =
     lang === "fr"
       ? (
-        "À partir du texte d'un article, produis un RÉSUMÉ STRUCTURÉ en français (plus détaillé) au format SUIVANT (strict) :\n\n" +
+        "Nettoie d'abord le texte source pour retirer toute trace de publicités, appels à l'action (abonnement, newsletter), mentions de cookies, éléments de navigation ou sections non reliées au contenu journalistique. Ne garde que le texte éditorial.\n\n" +
+        "À partir de ce texte propre, produis un RÉSUMÉ STRUCTURÉ en français (plus détaillé) au format SUIVANT (strict) :\n\n" +
         "TL;DR: 1 phrase synthétique.\n" +
         "Points clés:\n- 6 à 10 puces courtes, factuelles et lisibles (noms propres, chiffres utiles)\n" +
         "Contexte: 2 à 4 phrases pour situer le sujet (qui, quoi, où, enjeux).\n" +
@@ -225,7 +227,8 @@ async function summarizeWithGPT5(input: string, lang: string, clientKey?: string
         "Ne fais pas d'introduction ou de conclusion hors de ces sections. Pas d'emoji."
       )
       : (
-        "From the article text, produce a more DETAILED structured summary in English with the EXACT format below:\n\n" +
+        "First, clean the source text to remove any ads, calls-to-action (subscribe/newsletter), cookie notices, navigation, or unrelated blocks. Keep only editorial content.\n\n" +
+        "From this cleaned text, produce a more DETAILED structured summary in English with the EXACT format below:\n\n" +
         "TL;DR: 1 concise sentence.\n" +
         "Key points:\n- 6 to 10 short, factual bullets (proper nouns, meaningful numbers)\n" +
         "Context: 2–4 sentences to frame the story (who, what, where, stakes).\n" +
@@ -312,6 +315,29 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
     throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
   }
   return text.trim();
+}
+
+function sanitizeContent(input: string, lang: string): string {
+  try {
+    const lower = (s: string) => s.toLowerCase();
+    const adKeywords = [
+      "advertisement", "advert", "sponsored", "sponsor", "affiliate",
+      "newsletter", "subscribe", "sign up", "cookie", "cookies",
+      "read more", "related", "comments", "share this", "promo", "coupon", "deal", "offer",
+      // FR
+      "publicité", "sponsorisé", "sponsorisée", "abonnez-vous", "inscrivez-vous",
+      "cookies", "bandeau", "lire aussi", "à lire aussi", "commentaires", "partager", "offre", "promo", "bon plan"
+    ];
+    const sentences = input.split(/(?<=[\.!?])\s+/);
+    const keep = sentences.filter((s) => {
+      const ls = lower(s);
+      return !adKeywords.some((kw) => ls.includes(kw));
+    });
+    const joined = keep.join(" ").replace(/\s+/g, " ").trim();
+    return joined || input;
+  } catch {
+    return input;
+  }
 }
 
 function extractTextFromResponses(json: unknown): string {
