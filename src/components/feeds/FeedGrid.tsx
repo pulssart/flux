@@ -136,45 +136,57 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     if (!article.link) return;
     setGeneratingId(article.id);
     try {
+      // 1) Récupération du résumé (texte uniquement) via notre API (rapide)
       let apiKey = "";
-      try {
-        apiKey = localStorage.getItem("flux:ai:openai") || "";
-      } catch {}
+      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
       const res = await fetch("/api/ai/summarize-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, voice: (localStorage.getItem("flux:ai:voice") || undefined) }),
+        body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, textOnly: true }),
       });
       const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
       if (!res.ok) {
         const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
-        if (res.status === 401) {
-          toast.error(t(lang, "openAiMissing"));
-        } else if (res.status === 400 || res.status === 422 || res.status === 502) {
-          toast.error((errJson?.error || t(lang, "articleExtractFailed")) + stage);
-        } else if (res.status >= 500) {
-          toast.error((errJson?.error || t(lang, "serverGenError")) + stage);
-        }
-        throw new Error((errJson?.error || `Echec génération audio (${res.status})`) + stage);
+        if (res.status === 401) toast.error(t(lang, "openAiMissing"));
+        else if (res.status === 400 || res.status === 422 || res.status === 502) toast.error((errJson?.error || t(lang, "articleExtractFailed")) + stage);
+        else if (res.status >= 500) toast.error((errJson?.error || t(lang, "serverGenError")) + stage);
+        throw new Error((errJson?.error || `Echec génération (${res.status})`) + stage);
       }
-      const json = (await res.json()) as { audio?: string; text: string };
-      // Stoppe un éventuel audio en cours
+      const json = (await res.json()) as { text: string };
+
+      // 2) Synthèse vocale côté client (évite les timeouts Netlify)
+      if (!apiKey) {
+        toast.error(t(lang, "openAiMissing"));
+        return;
+      }
+      const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
+      const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model: "gpt-4o-mini-tts", input: json.text, voice, format: "mp3" }),
+      });
+      if (!ttsRes.ok) {
+        const e = await ttsRes.text().catch(() => "");
+        throw new Error(`TTS failed: ${e || ttsRes.status}`);
+      }
+      const arrayBuf = await ttsRes.arrayBuffer();
+      const blob = new Blob([arrayBuf], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
       if (audioEl) {
-        try {
-          audioEl.pause();
-        } catch {}
+        try { audioEl.pause(); } catch {}
       }
-      if (json.audio) {
-        const audio = new Audio(`data:audio/mp3;base64,${json.audio}`);
-        setAudioEl(audio);
-        setPlayingId(article.id);
-        audio.onended = () => setPlayingId((pid) => (pid === article.id ? null : pid));
-        await audio.play();
-        toast.success(t(lang, "playbackStarted"));
-      } else {
-        // Aucun audio renvoyé: afficher le résumé texte en toast discret
-        toast.success(t(lang, "playbackStarted"));
-      }
+      const audio = new Audio(url);
+      setAudioEl(audio);
+      setPlayingId(article.id);
+      audio.onended = () => {
+        setPlayingId((pid) => (pid === article.id ? null : pid));
+        try { URL.revokeObjectURL(url); } catch {}
+      };
+      await audio.play();
+      toast.success(t(lang, "playbackStarted"));
     } catch (e) {
       console.error(e);
       // les toasts d'erreur sont gérés ci-dessus
