@@ -81,7 +81,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         overlayClassName="bg-neutral-100"
         showCloseButton
       >
-        <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col`}> 
+        <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col shadow-2xl shadow-black/20`}> 
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
               {article?.title || payload?.title || ""}
@@ -120,14 +120,14 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             {loading ? (
               <div className="py-10 text-center text-sm opacity-70">Chargement…</div>
             ) : payload?.contentHtml ? (
-              <div className="mx-auto w-full max-w-[760px] px-1 sm:px-2">
+              <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
                 <article
                   className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none prose-pre:overflow-x-auto"
                   dangerouslySetInnerHTML={{ __html: payload.contentHtml || "" }}
                 />
               </div>
             ) : (
-              <div className="mx-auto w-full max-w-[760px] px-1 sm:px-2">
+              <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
                 <article className="prose prose-neutral dark:prose-invert prose-lg leading-8 tracking-[0.005em] max-w-none whitespace-pre-wrap">
                   {article?.title}
                 </article>
