@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (url && typeof url === "string") {
       let html: string;
       try {
-        html = await fetchWithTimeout(url, 8000);
+        html = await fetchWithTimeout(url, 12000);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         return NextResponse.json(
@@ -84,11 +84,12 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice);
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, 20000);
         return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
-      } catch {
-        // Fallback: retourner le texte même si la synthèse audio échoue
-        return NextResponse.json({ text: summary }, { status: 200 });
+      } catch (e: unknown) {
+        // Fallback: retourner le texte même si la synthèse audio échoue/timeout
+        const isTimeout = e instanceof ApiError ? e.status === 504 : false;
+        return NextResponse.json({ text: summary, partial: true, reason: isTimeout ? "tts-timeout" : "tts-failed" }, { status: 200 });
       }
     }
 
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
 
       let audioBase64: string;
       try {
-        audioBase64 = await ttsWithTTS1HD(finalText, lang, apiKey, voice);
+        audioBase64 = await ttsWithTTS1HD(finalText, lang, apiKey, voice, 20000);
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -232,7 +233,11 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
       );
 
   // Utiliser l'API Responses pour gpt-5-nano
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -242,7 +247,11 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
       model: "gpt-5-nano",
       input: `${prompt}\n\n${input}`,
     }),
+    signal: controller.signal,
   });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let errText = "";
     try {
@@ -284,7 +293,11 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
         "Target length: 700–1200 characters."
       );
 
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -294,7 +307,11 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
       model: "gpt-5-nano",
       input: `${prompt}\n\n${input}`,
     }),
+    signal: controller.signal,
   });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let errText = "";
     try {
@@ -332,7 +349,11 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
       ? "À partir d'une liste de titres et d'extraits d'articles du jour, produis un court bulletin structuré (4 à 7 phrases) en français, regroupant les grands thèmes et reliant les infos de manière fluide."
       : "From a list of today's headlines and snippets, produce a short structured bulletin (4-7 sentences) summarizing key themes in the requested language.";
 
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -342,7 +363,11 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
       model: "gpt-5-nano",
       input: `${prompt}\n\n${input}`,
     }),
+    signal: controller.signal,
   });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let errText = "";
     try {
@@ -429,7 +454,7 @@ function extractTextFromResponses(json: unknown): string {
   return "";
 }
 
-async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, clientVoice?: string): Promise<string> {
+async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, clientVoice?: string, timeoutMs = 26000): Promise<string> {
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
@@ -451,7 +476,11 @@ async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, cl
     return "alloy";
   };
   const voice = resolveVoice(typeof clientVoice === "string" ? clientVoice : undefined);
-  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/audio/speech", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -463,7 +492,14 @@ async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, cl
       voice,
       format: "mp3",
     }),
+    signal: controller.signal,
   });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new ApiError(504, "TTS timeout");
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let errText = "";
     try {

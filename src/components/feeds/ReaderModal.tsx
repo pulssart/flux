@@ -172,9 +172,19 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
           <DialogTitle>{t(lang, "writeAbout")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground break-words">
-            {article?.title ? <div className="truncate"><strong>Titre:</strong> {article.title}</div> : null}
-            {article?.link ? <div className="truncate"><strong>URL:</strong> {article.link}</div> : null}
+          <div className="text-sm text-muted-foreground space-y-1">
+            {article?.title ? (
+              <div className="min-w-0 break-words">
+                <strong className="mr-1">Titre:</strong>
+                <span className="break-words">{article.title}</span>
+              </div>
+            ) : null}
+            {article?.link ? (
+              <div className="min-w-0 break-all overflow-hidden">
+                <strong className="mr-1">URL:</strong>
+                <span className="break-all">{article.link}</span>
+              </div>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label className="text-sm">{t(lang, "writingStyleLabel")}</Label>
