@@ -127,7 +127,8 @@ export function Overview() {
     try {
       console.log("[overview] generate: start", { lang });
       // Tentative complète d'abord
-      let j: { html: string; items?: any[]; intro?: string } | null = null;
+      type OverviewItem = { title: string; link: string | null; image: string | null; summary: string; host: string; pubDate: string | null };
+      let j: { html: string; items?: OverviewItem[]; intro?: string } | null = null;
       try {
         j = await requestOverview(false, 45000);
       } catch (e) {
