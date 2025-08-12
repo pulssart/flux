@@ -89,6 +89,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     onboardingNext: "Suivant",
     onboardingDone: "Terminer",
     lastUpdatedLabel: "Dernière mise à jour",
+    loginWithGoogle: "Se connecter avec Google",
+    logout: "Se déconnecter",
+    loginTitle: "Connexion requise",
+    loginDescription: "Connectez-vous pour sauvegarder vos préférences et accéder à l'application.",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -174,6 +178,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     onboardingNext: "Next",
     onboardingDone: "Done",
     lastUpdatedLabel: "Last updated",
+    loginWithGoogle: "Sign in with Google",
+    logout: "Sign out",
+    loginTitle: "Sign in required",
+    loginDescription: "Sign in to save your preferences and access the app.",
   },
 };
 

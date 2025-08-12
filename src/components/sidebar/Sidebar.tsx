@@ -16,6 +16,7 @@ import { GripVertical, Pencil, Trash2, PanelLeft, PanelRight, Settings2, Plus, L
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "next-themes";
 import Image from "next/image";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { SUGGESTED_FEEDS } from "@/lib/suggestions";
@@ -135,6 +136,10 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const [refreshTick, setRefreshTick] = useState(0);
   const [aiKey, setAiKey] = useState("");
   const [aiVoice, setAiVoice] = useState("alloy");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [sessionAvatarUrl, setSessionAvatarUrl] = useState<string | null>(null);
+  const syncTimerRef = useRef<number | null>(null);
   useEffect(() => setMounted(true), []);
 
   const currentTheme = mounted ? (theme ?? resolvedTheme) : "light";
@@ -150,7 +155,71 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       const v = localStorage.getItem("flux:ai:voice") || "alloy";
       setAiVoice(v);
     } catch {}
+    // Récupérer la session Supabase côté client
+    (async () => {
+      try {
+        // Interroge notre API pour récupérer l'utilisateur (cookies côté serveur)
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const j = (await res.json()) as { user: { email: string | null; avatar_url: string | null } | null };
+          setSessionEmail(j.user?.email ?? null);
+          setSessionAvatarUrl(j.user?.avatar_url ?? null);
+        }
+      } catch {}
+    })();
   }, []);
+
+  // À la connexion: tenter d'hydrater depuis la base; sinon pousser l'état local en base
+  useEffect(() => {
+    (async () => {
+      if (!sessionEmail) return;
+      try {
+        const res = await fetch("/api/user/state", { method: "GET", cache: "no-store" });
+        if (!res.ok) return;
+        const j = (await res.json()) as { feeds: FeedInfo[]; folders: FolderInfo[]; preferences?: Record<string, unknown> };
+        const dbFeeds = Array.isArray(j.feeds) ? j.feeds : [];
+        const dbFolders = Array.isArray(j.folders) ? j.folders : [];
+        const localFeeds = loadFeeds();
+        const localFolders = loadFolders();
+        const useDb = (dbFeeds.length + dbFolders.length) > 0;
+        if (useDb) {
+          setFeeds(dbFeeds);
+          setFolders(dbFolders);
+          saveFeeds(dbFeeds);
+          saveFolders(dbFolders);
+        } else if (localFeeds.length + localFolders.length > 0) {
+          // Première connexion: pousser le local vers la base
+          void fetch("/api/user/state", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feeds: localFeeds, folders: localFolders, preferences: buildPreferences() }),
+          });
+        }
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionEmail]);
+
+  function buildPreferences(): Record<string, unknown> {
+    // On n'envoie PAS la clé OpenAI côté serveur
+    return {
+      lang,
+      aiVoice,
+      theme: mounted ? (theme ?? resolvedTheme) : "system",
+    };
+  }
+
+  function scheduleSyncToServer(nextFeeds: FeedInfo[], nextFolders: FolderInfo[]) {
+    if (!sessionEmail) return;
+    if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = window.setTimeout(() => {
+      void fetch("/api/user/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feeds: nextFeeds, folders: nextFolders, preferences: buildPreferences() }),
+      });
+    }, 800);
+  }
 
   useEffect(() => {
     onSelectFeeds(selectedIds);
@@ -168,12 +237,14 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     const next = [...folders, folder];
     setFolders(next);
     saveFolders(next);
+    scheduleSyncToServer(feeds, next);
   }
 
   function renameFolder(folderId: string, title: string) {
     const next = folders.map((f) => (f.id === folderId ? { ...f, title } : f));
     setFolders(next);
     saveFolders(next);
+    scheduleSyncToServer(feeds, next);
   }
 
   function removeFolder(folderId: string) {
@@ -181,6 +252,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     const remaining = folders.filter((x) => x.id !== folderId);
     setFolders(remaining);
     saveFolders(remaining);
+    scheduleSyncToServer(feeds, remaining);
     if (f && f.feedIds.length) {
       // remettre les feeds en top-level (append)
       const reinjected = feeds.concat(
@@ -190,6 +262,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       );
       setFeeds(reinjected);
       saveFeeds(reinjected);
+      scheduleSyncToServer(reinjected, remaining);
     }
   }
 
@@ -197,6 +270,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     const next = folders.map((f) => (f.id === folderId ? { ...f, collapsed: !f.collapsed } : f));
     setFolders(next);
     saveFolders(next);
+    scheduleSyncToServer(feeds, next);
   }
 
 
@@ -311,6 +385,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     const updated = [...feeds, next];
     setFeeds(updated);
     saveFeeds(updated);
+    scheduleSyncToServer(updated, folders);
     if (!urlParam) setNewFeedUrl("");
     setSelectedIds((ids) => Array.from(new Set([...ids, next.id])));
     onFeedsChanged?.();
@@ -342,6 +417,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     const updated = feeds.filter((f) => f.id !== id);
     setFeeds(updated);
     saveFeeds(updated);
+    scheduleSyncToServer(updated, folders);
     setSelectedIds((ids) => ids.filter((x) => x !== id));
     if (toRemove) {
       clearFeedCache(toRemove.url);
@@ -354,6 +430,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     const updated = feeds.map((f) => (f.id === id ? { ...f, title } : f));
     setFeeds(updated);
     saveFeeds(updated);
+    scheduleSyncToServer(updated, folders);
     onFeedsChanged?.();
   }
 
@@ -406,6 +483,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         const updated = arrayMove(folders, oldIndex, newIndex);
         setFolders(updated);
         saveFolders(updated);
+        scheduleSyncToServer(feeds, updated);
       }
       return;
     }
@@ -423,6 +501,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
           const nextFolders = folders.map((f) => (f.id === updatedFolder.id ? updatedFolder : f));
           setFolders(nextFolders);
           saveFolders(nextFolders);
+          scheduleSyncToServer(feeds, nextFolders);
         }
         return;
       }
@@ -434,6 +513,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
           const updated = arrayMove(feeds, oldIndex, newIndex);
           setFeeds(updated);
           saveFeeds(updated);
+          scheduleSyncToServer(updated, folders);
         }
         return;
       }
@@ -451,6 +531,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         saveFolders(folders.map((f) => (f.id === updatedSrc.id ? updatedSrc : f)));
         setFeeds(nextTop);
         saveFeeds(nextTop);
+        scheduleSyncToServer(nextTop, folders.map((f) => (f.id === updatedSrc.id ? updatedSrc : f)));
         return;
       }
     }
@@ -541,6 +622,52 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                   </TooltipTrigger>
                   <TooltipContent>{t(lang, "addFolder")}</TooltipContent>
                 </Tooltip>
+                {/* Auth */}
+                <div className="ml-1">
+                  {sessionEmail ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full p-0 grid place-items-center">
+                          <Image
+                            src={sessionAvatarUrl || "/icon.png"}
+                            alt={sessionEmail}
+                            width={20}
+                            height={20}
+                            className="h-5 w-5 rounded-full object-cover"
+                          />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-56">
+                        <DropdownMenuItem disabled className="opacity-100">
+                          <Image
+                            src={sessionAvatarUrl || "/icon.png"}
+                            alt=""
+                            width={18}
+                            height={18}
+                            className="h-4.5 w-4.5 rounded-sm object-cover"
+                          />
+                          <span className="truncate">{sessionEmail}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            if (authLoading) return;
+                            setAuthLoading(true);
+                            try {
+                              await fetch("/api/auth/logout", { method: "POST" });
+                              window.location.reload();
+                            } finally {
+                              setAuthLoading(false);
+                            }
+                          }}
+                        >
+                          {authLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                          {t(lang, "logout")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
