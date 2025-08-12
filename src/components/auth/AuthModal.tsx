@@ -38,6 +38,7 @@ export function AuthModal() {
     <Dialog open={open} onOpenChange={(v) => setOpen(v)}>
       <DialogContent
         className="max-w-lg p-0 overflow-hidden"
+        showCloseButton={false}
         onInteractOutside={(e) => {
           // Ne pas fermer au clic en dehors de la modale
           e.preventDefault();

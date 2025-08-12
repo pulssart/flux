@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useLang } from "@/lib/i18n";
+import { Button } from "@/components/ui/button";
+import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useTheme } from "next-themes";
@@ -22,6 +23,9 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   const [dateStr, setDateStr] = useState<string>("");
   const imageUrl = article?.image || undefined;
   const [loadingStep, setLoadingStep] = useState<number>(0);
+  const [xOpen, setXOpen] = useState(false);
+  const [xLoading, setXLoading] = useState(false);
+  const [xText, setXText] = useState("");
 
   useEffect(() => {
     if (!open || !article?.link) return;
@@ -66,6 +70,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   // dateStr set in effect
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={
@@ -96,29 +101,43 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               </a>
             ) : null}
             {summary ? (
-              <button
-                type="button"
-                className="text-[12px] underline opacity-80 hover:opacity-100"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  try {
-                    if (!summary) return;
-                    if (navigator.clipboard?.writeText) {
-                      await navigator.clipboard.writeText(summary);
-                    } else {
-                      const ta = document.createElement("textarea");
-                      ta.value = summary;
-                      document.body.appendChild(ta);
-                      ta.select();
-                      document.execCommand("copy");
-                      document.body.removeChild(ta);
-                    }
-                    toast.success(lang === "fr" ? "Résumé copié" : "Summary copied");
-                  } catch {}
-                }}
-              >
-                {lang === "fr" ? "Copier le résumé" : "Copy summary"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="text-[12px] underline opacity-80 hover:opacity-100"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    try {
+                      if (!summary) return;
+                      if (navigator.clipboard?.writeText) {
+                        await navigator.clipboard.writeText(summary);
+                      } else {
+                        const ta = document.createElement("textarea");
+                        ta.value = summary;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
+                      toast.success(lang === "fr" ? "Résumé copié" : "Summary copied");
+                    } catch {}
+                  }}
+                >
+                  {lang === "fr" ? "Copier le résumé" : "Copy summary"}
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  className="text-[12px] underline opacity-80 hover:opacity-100"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setXOpen(true);
+                    setXText("");
+                  }}
+                >
+                  {t(lang, "writeAbout")}
+                </button>
+              </>
             ) : null}
           </div>
           <div className={`px-5 pb-6 pt-2 flex-1 overflow-y-auto`}> 
@@ -136,6 +155,96 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         <DialogFooter />
       </DialogContent>
     </Dialog>
+
+    {/* Modale de génération Post X */}
+    <Dialog open={xOpen} onOpenChange={setXOpen}>
+      <DialogContent className="w-[92vw] max-w-2xl sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{t(lang, "writeAbout")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground break-words">
+            {article?.title ? <div className="truncate"><strong>Titre:</strong> {article.title}</div> : null}
+            {article?.link ? <div className="truncate"><strong>URL:</strong> {article.link}</div> : null}
+          </div>
+          <textarea
+            className="w-full h-[28vh] min-h-[180px] max-h-[50vh] resize-vertical overflow-auto border rounded-md bg-background p-3 text-sm leading-relaxed"
+            value={xText}
+            placeholder={lang === "fr" ? "Le post généré apparaîtra ici…" : "The generated post will appear here…"}
+            onChange={(e) => setXText(e.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              disabled={xLoading}
+              onClick={async () => {
+                if (!article?.link) return;
+                setXLoading(true);
+                try {
+                  let apiKey = "";
+                  try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+                  const res = await fetch("/api/ai/generate-x-post", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      title: article?.title || "",
+                      summary,
+                      url: article.link,
+                      lang,
+                      apiKey: apiKey || undefined,
+                    }),
+                  });
+                  const j = await res.json();
+                  if (!res.ok) throw new Error(j?.error || "failed");
+                  const text = (j.text as string) || "";
+                  const appended = text ? `${text} ${article.link}` : article.link;
+                  setXText(appended);
+                } catch (e) {
+                  toast.error(lang === "fr" ? "Génération du post échouée" : "Post generation failed");
+                } finally {
+                  setXLoading(false);
+                }
+              }}
+            >
+              {xLoading ? (t(lang, "generatingPost")) : (t(lang, "generatePost"))}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  if (!xText) return;
+                  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(xText);
+                  else {
+                    const ta = document.createElement("textarea");
+                    ta.value = xText;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                  }
+                  toast.success(t(lang, "postCopied"));
+                } catch {}
+              }}
+            >
+              {t(lang, "copyPost")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                // Ouvrir X avec un nouveau post et tenter de coller automatiquement via clipboard + focus
+                try {
+                  const text = xText || "";
+                  const url = "https://x.com/intent/tweet?text=" + encodeURIComponent(text);
+                  window.open(url, "_blank", "noopener,noreferrer");
+                } catch {}
+              }}
+            >
+              {t(lang, "postOnX")}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

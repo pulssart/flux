@@ -100,6 +100,12 @@ const DICT: Record<Lang, Record<string, string>> = {
     loginBenefitSecurity: "Connexion sécurisée via Google (aucun mot de passe à gérer)",
     loginPrivacyNote: "Nous n'accédons qu'à votre adresse email et votre avatar pour votre session. Aucune donnée n'est partagée avec des tiers.",
     openReader: "Ouvrir le lecteur",
+    writeAbout: "Écrire à propos de cet article",
+    generatePost: "Générer le post",
+    generatingPost: "Génération du post…",
+    copyPost: "Copier le post",
+    postCopied: "Post copié",
+    postOnX: "Poster sur X",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -196,6 +202,12 @@ const DICT: Record<Lang, Record<string, string>> = {
     loginBenefitSecurity: "Secure sign-in with Google (no passwords to manage)",
     loginPrivacyNote: "We only use your email and avatar for your session. No data is shared with third parties.",
     openReader: "Open reader",
+    writeAbout: "Write about this article",
+    generatePost: "Generate post",
+    generatingPost: "Generating post…",
+    copyPost: "Copy post",
+    postCopied: "Post copied",
+    postOnX: "Post on X",
   },
 };
 
