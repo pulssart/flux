@@ -154,6 +154,9 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const syncTimerRef = useRef<number | null>(null);
   const periodicSyncRef = useRef<number | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // Quota AI: 30 tokens/jour
+  const DAILY_TOKENS = 30;
+  const [tokensLeft, setTokensLeft] = useState<number>(DAILY_TOKENS);
   const [activeDrag, setActiveDrag] = useState<{ id: string; kind: "feed" | "folder"; title: string } | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const hoverExpandTimerRef = useRef<number | null>(null);
@@ -180,6 +183,19 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   useEffect(() => {
     setFeeds(loadFeeds());
     setFolders(loadFolders());
+    // Charger tokens restants (reset quotidien)
+    try {
+      const k = "flux:ai:tokens";
+      const raw = localStorage.getItem(k);
+      const today = new Date().toISOString().slice(0, 10);
+      if (raw) {
+        const j = JSON.parse(raw) as { date: string; left: number };
+        if (j && j.date === today && Number.isFinite(j.left)) setTokensLeft(Math.max(0, Math.min(DAILY_TOKENS, j.left)));
+        else localStorage.setItem(k, JSON.stringify({ date: today, left: DAILY_TOKENS }));
+      } else {
+        localStorage.setItem(k, JSON.stringify({ date: today, left: DAILY_TOKENS }));
+      }
+    } catch {}
     // Charger la clé API OpenAI depuis localStorage
     try {
       const k = localStorage.getItem("flux:ai:openai") || "";
@@ -243,6 +259,22 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       theme: mounted ? (theme ?? resolvedTheme) : "system",
     };
   }
+
+  // Exposition d'une API globale simple pour décrémenter un token (appelée par les features IA)
+  useEffect(() => {
+    const on = (_e: Event) => {
+      setTokensLeft((prev) => {
+        const next = Math.max(0, prev - 1);
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left: next }));
+        } catch {}
+        return next;
+      });
+    };
+    window.addEventListener("flux:ai:token:consume", on);
+    return () => window.removeEventListener("flux:ai:token:consume", on);
+  }, []);
 
   function scheduleSyncToServer(nextFeeds: FeedInfo[], nextFolders: FolderInfo[]) {
     if (!sessionEmail) return;
@@ -852,7 +884,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
             return (
               <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
                 <ScrollArea className="flex-1 min-h-0">
-                  <ul className="p-2 space-y-1">
+                  <ul className="p-2 space-y-1 pb-24">
                     <li className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">{t(lang, "overview")}</li>
                     <li>
                       <button
@@ -922,7 +954,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         </DndContext>
       ) : (
         <ScrollArea className="flex-1 min-h-0">
-          <ul className="p-2 space-y-2">
+          <ul className="p-2 space-y-2 pb-24">
             {feeds.map((f) => (
               <CollapsedItem
                 key={f.id}
@@ -937,6 +969,25 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
           </ul>
         </ScrollArea>
       )}
+      {/* Bloc AI tokens (fixe en bas, au-dessus de la liste) */}
+      <div className="absolute left-2 right-2 bottom-2 z-40">
+        <div className="rounded-lg border bg-background/90 backdrop-blur px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-medium">{t(lang, "aiTokens")}</div>
+            <div className="text-[11px] text-muted-foreground">{tokensLeft}/{DAILY_TOKENS} {t(lang, "tokensRemaining")}</div>
+          </div>
+          <div className="mt-1 h-2 w-full rounded bg-muted overflow-hidden">
+            {(() => {
+              const ratio = Math.max(0, Math.min(1, tokensLeft / DAILY_TOKENS));
+              const color = ratio <= (5 / DAILY_TOKENS) ? "bg-red-500" : (ratio <= 0.5 ? "bg-yellow-500" : "bg-green-500");
+              return <div className={`h-2 ${color}`} style={{ width: `${Math.round(ratio * 100)}%` }} />;
+            })()}
+          </div>
+          <div className="mt-2 flex justify-end">
+            <Button size="sm" variant="outline">{t(lang, "upgrade")}</Button>
+          </div>
+        </div>
+      </div>
       {/* poignée de redimensionnement (uniquement en mode étendu) */}
       {!collapsed && (
             <div

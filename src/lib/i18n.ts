@@ -117,6 +117,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     styleHumorous: "Humour léger",
     styleFormal: "Formel (sérieux)",
     styleVeryPersonal: "Très personnel (avis)",
+    aiTokens: "AI tokens",
+    tokensRemaining: "restants",
+    upgrade: "Améliorer",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -230,6 +233,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     styleHumorous: "Light humor",
     styleFormal: "Formal (serious)",
     styleVeryPersonal: "Very personal (opinion)",
+    aiTokens: "AI tokens",
+    tokensRemaining: "left",
+    upgrade: "Upgrade",
   },
 };
 
