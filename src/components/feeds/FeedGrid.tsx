@@ -53,7 +53,6 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
-  const DIGEST_ID = "__digest__";
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string; image?: string } | null>(null);
@@ -304,8 +303,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
 
   const headerTitle = getHeaderTitle(feeds.map((f) => ({ title: f.title, url: f.url })));
 
-  // Lecture / génération audio
-
+  // Lecture / génération audio (au niveau article uniquement)
   const featured: Article | undefined = articles[0];
   const rest: Article[] = articles.slice(1);
 
@@ -314,35 +312,6 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           {headerTitle && <h1 className="text-4xl md:text-5xl font-bold">{headerTitle}</h1>}
-          {/* Contrôle Play/Stop pour le digest du jour */}
-          {(!playingId || playingId !== DIGEST_ID) && generatingId !== DIGEST_ID && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-foreground hover:text-background transition-colors"
-              onClick={() => void playDigestForToday()}
-              title={t(lang, "playDailyDigest")}
-            >
-              <Play className="w-4 h-4" />
-              <span>{t(lang, "play")}</span>
-            </button>
-          )}
-          {generatingId === DIGEST_ID && (
-            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Génération…</span>
-            </span>
-          )}
-          {playingId === DIGEST_ID && generatingId !== DIGEST_ID && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-foreground hover:text-background transition-colors"
-              onClick={() => stopPlayback()}
-              title={t(lang, "stop")}
-            >
-              <Square className="w-4 h-4" />
-              <span>{t(lang, "stop")}</span>
-            </button>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <button
