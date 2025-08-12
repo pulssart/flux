@@ -140,6 +140,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionAvatarUrl, setSessionAvatarUrl] = useState<string | null>(null);
   const syncTimerRef = useRef<number | null>(null);
+  const periodicSyncRef = useRef<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const currentTheme = mounted ? (theme ?? resolvedTheme) : "light";
@@ -220,6 +222,30 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       });
     }, 800);
   }
+
+  // Synchronisation périodique toutes les 5 minutes quand connecté
+  useEffect(() => {
+    if (!sessionEmail) return;
+    const run = async () => {
+      try {
+        setSyncing(true);
+        await fetch("/api/user/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ feeds, folders, preferences: buildPreferences() }),
+        });
+      } finally {
+        setSyncing(false);
+      }
+    };
+    // première synchro immédiate après connexion
+    run();
+    periodicSyncRef.current = window.setInterval(run, 5 * 60 * 1000) as unknown as number;
+    return () => {
+      if (periodicSyncRef.current) window.clearInterval(periodicSyncRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionEmail]);
 
   useEffect(() => {
     onSelectFeeds(selectedIds);
@@ -647,6 +673,25 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                             className="h-4.5 w-4.5 rounded-sm object-cover"
                           />
                           <span className="truncate">{sessionEmail}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            if (!sessionEmail || syncing) return;
+                            setSyncing(true);
+                            try {
+                              await fetch("/api/user/state", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ feeds, folders, preferences: buildPreferences() }),
+                              });
+                              toast.success(t(lang, "syncNow"));
+                            } finally {
+                              setSyncing(false);
+                            }
+                          }}
+                        >
+                          {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                          {syncing ? t(lang, "syncing") : t(lang, "syncNow")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

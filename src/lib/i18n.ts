@@ -93,6 +93,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     logout: "Se déconnecter",
     loginTitle: "Connexion requise",
     loginDescription: "Connectez-vous pour sauvegarder vos préférences et accéder à l'application.",
+    syncNow: "Synchroniser maintenant",
+    syncing: "Synchronisation…",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -182,6 +184,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     logout: "Sign out",
     loginTitle: "Sign in required",
     loginDescription: "Sign in to save your preferences and access the app.",
+    syncNow: "Sync now",
+    syncing: "Syncing…",
   },
 };
 
