@@ -3,17 +3,20 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin).replace(/\/$/, "");
+  const redirectUrl = new URL("/", origin);
   try {
     const supabase = await getSupabaseServerClient();
-    // Tente d'échanger explicitement le code si présent
-    const url = new URL(_req.url);
+    const url = new URL(req.url);
     const code = url.searchParams.get("code");
     if (code) {
       await supabase.auth.exchangeCodeForSession(code);
     }
-  } catch {}
-  return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"));
+  } catch {
+    // ignore et on redirige quand même
+  }
+  return NextResponse.redirect(redirectUrl);
 }
 
 
