@@ -6,6 +6,7 @@ import { youtubeThumbnailFromLink } from "@/lib/rss";
 
 export async function POST(req: NextRequest) {
   try {
+    const dbgStart = Date.now();
     // Charger la liste des feeds depuis localStorage côté client n'est pas possible ici.
     // On s'attend à recevoir la liste côté client dans le futur; pour MVP on lit un header JSON optionnel.
     const body = await req.json().catch(() => ({}));
@@ -99,19 +100,43 @@ export async function POST(req: NextRequest) {
 
     // Compléter les images manquantes via OG (quota limité)
     let toComplete = limited.filter((x) => !x.image && x.link);
-    // En mode rapide, ne compléter que quelques images (6 max) si demandé
-    if (fast) toComplete = toComplete.slice(0, 6);
+    // En mode rapide, ne compléter que quelques images (12 max) si demandé
+    if (fast) toComplete = toComplete.slice(0, 12);
     if ((withImages || !fast) && Date.now() - startedAt < timeBudgetMs - 1500 && toComplete.length) {
+      // 1ère passe: OG rapide
       await Promise.allSettled(
         toComplete.map(async (it) => {
           try {
-            const og = await fetchOg(it.link as string, 1000);
-            if (og && og.image) {
-              it.image = og.image || undefined;
-            }
+            const og = await fetchOg(it.link as string, 1200);
+            if (og && og.image) it.image = og.image || undefined;
           } catch {}
         })
       );
+      // 2ème passe: endpoint edge (parfois plus permissif/CDN)
+      const still = limited.filter((x) => !x.image && x.link);
+      if (still.length && Date.now() - startedAt < timeBudgetMs - 800) {
+        await Promise.allSettled(
+          still.map(async (it) => {
+            try {
+              const r = await fetch(`${req.nextUrl.origin}/api/og-image?u=${encodeURIComponent(it.link as string)}`);
+              if (r.ok) {
+                const j = (await r.json()) as { image?: string | null };
+                if (j.image) it.image = j.image;
+              }
+            } catch {}
+          })
+        );
+      }
+    }
+
+    // Tentative de fallback: si pas d'image OG, utiliser favicon du domaine (mieux que rien)
+    for (const it of limited) {
+      if (!it.image && it.link) {
+        try {
+          const u = new URL(it.link);
+          it.image = `https://icons.duckduckgo.com/ip3/${u.hostname}.ico`;
+        } catch {}
+      }
     }
 
     // Résumés par article dans la langue cible si clé API disponible
@@ -181,7 +206,14 @@ export async function POST(req: NextRequest) {
     }
 
     const html = `${intro}${blocks.join("\n")}`;
-    return NextResponse.json({ html }, { status: 200 });
+    const itemsOut = limited.map((it, idx) => {
+      const summary = (perItemSummaries[idx] && perItemSummaries[idx].trim()) || it.contentSnippet || "";
+      let host = "";
+      try { if (it.link) host = new URL(it.link).hostname.replace(/^www\./, ""); } catch {}
+      return { title: it.title, link: it.link || null, image: it.image || null, summary, host, pubDate: it.pubDate || null };
+    });
+    const dbg = { items: itemsOut.length, timeMs: Date.now() - dbgStart, completedImages: itemsOut.filter(i => i.image).length };
+    return NextResponse.json({ html, items: itemsOut, intro, dbg }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Error";
     return NextResponse.json({ error: msg }, { status: 500 });

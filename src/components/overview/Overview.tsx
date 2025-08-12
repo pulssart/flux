@@ -13,7 +13,21 @@ import { Input } from "@/components/ui/input";
 export function Overview() {
   const [lang] = useLang();
   const [generating, setGenerating] = useState(false);
-  const [content, setContent] = useState<null | { html: string }>(null);
+  const [content, setContent] = useState<
+    | null
+    | {
+        html: string;
+        items?: Array<{
+          title: string;
+          link: string | null;
+          image: string | null;
+          summary: string;
+          host: string;
+          pubDate: string | null;
+        }>;
+        intro?: string;
+      }
+  >(null);
   const generatingRef = useRef(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -24,6 +38,17 @@ export function Overview() {
   const [loadingUnsplash, setLoadingUnsplash] = useState<boolean>(false);
   const [unsplashPage, setUnsplashPage] = useState<number>(1);
   const [unsplashHasMore, setUnsplashHasMore] = useState<boolean>(false);
+  const fillingImagesRef = useRef(false);
+
+  function proxyImage(url?: string | null): string | null {
+    if (!url) return null;
+    try {
+      const key = btoa(url).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      return `/api/proxy-image/${key}`;
+    } catch {
+      return null;
+    }
+  }
 
   const today = new Date();
   const weekday = format(today, "EEEE", { locale: lang === "fr" ? frLocale : enUS });
@@ -34,8 +59,17 @@ export function Overview() {
     try {
       const saved = localStorage.getItem("flux:overview:today");
       if (saved) {
-        const j = JSON.parse(saved) as { html: string; date: string };
-        setContent({ html: sanitizeOverviewHtml(j.html, lang, dateTitle) });
+        const j = JSON.parse(saved) as {
+          html: string;
+          date: string;
+          items?: Array<{ title: string; link: string | null; image: string | null; summary: string; host: string; pubDate: string | null }>;
+          intro?: string;
+        };
+        setContent({
+          html: sanitizeOverviewHtml(j.html, lang, dateTitle),
+          items: Array.isArray(j.items) ? j.items : undefined,
+          intro: typeof j.intro === "string" ? j.intro : undefined,
+        });
         if (j?.date) {
           const d = new Date(j.date);
           if (!isNaN(d.getTime())) setLastUpdated(d);
@@ -52,53 +86,98 @@ export function Overview() {
     } catch {}
   }, [lang, dateTitle]);
 
+  async function requestOverview(fast: boolean, timeoutMs: number) {
+    const startedAt = Date.now();
+    let feeds: string[] = [];
+    try {
+      const str = localStorage.getItem("flux:feeds");
+      if (str) {
+        const arr = JSON.parse(str) as { url: string }[];
+        feeds = arr.map((x) => x.url).filter(Boolean);
+      }
+    } catch {}
+    let apiKey = "";
+    try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+    const controller = new AbortController();
+    const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch("/api/overview/today", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feeds, lang, apiKey: apiKey || undefined, fast, images: true, debug: true }),
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+    console.log("[overview] request", { fast, status: res.status, ms: Date.now() - startedAt });
+    if (!res.ok) {
+      const j = await res.json().catch(() => null);
+      throw new Error(j?.error || `HTTP ${res.status}`);
+    }
+    return (await res.json()) as {
+      html: string;
+      items?: Array<{ title: string; link: string | null; image: string | null; summary: string; host: string; pubDate: string | null }>;
+      intro?: string;
+      dbg?: unknown;
+    };
+  }
+
   async function generate() {
     if (generatingRef.current) return;
     generatingRef.current = true;
     setGenerating(true);
     try {
-      // Récupérer la liste des feeds côté client et l'envoyer au backend
-      let feeds: string[] = [];
+      console.log("[overview] generate: start", { lang });
+      // Tentative complète d'abord
+      let j: { html: string; items?: any[]; intro?: string } | null = null;
       try {
-        const str = localStorage.getItem("flux:feeds");
-        if (str) {
-          const arr = JSON.parse(str) as { url: string }[];
-          feeds = arr.map((x) => x.url).filter(Boolean);
-        }
-      } catch {}
-      let apiKey = "";
-      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-      const controller = new AbortController();
-      const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch("/api/overview/today", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feeds, lang, apiKey: apiKey || undefined, fast: true, images: true }),
-        signal: controller.signal,
-      });
-      clearTimeout(t);
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        throw new Error(j?.error || `HTTP ${res.status}`);
+        j = await requestOverview(false, 45000);
+      } catch (e) {
+        console.warn("[overview] full request failed, fallback to fast", e);
       }
-      const j = (await res.json()) as { html: string };
-      const cleanHtml = sanitizeOverviewHtml(j.html, lang, dateTitle);
-      setContent({ html: cleanHtml });
+      // Fallback rapide si échec/timeout
+      if (!j) {
+        try {
+          j = await requestOverview(true, 15000);
+        } catch (e) {
+          console.error("[overview] fast request failed", e);
+          throw e;
+        }
+        // Lancer enrichissement en arrière-plan pour remplacer ensuite
+        (async () => {
+          try {
+            const full = await requestOverview(false, 45000);
+            const cleanHtml2 = sanitizeOverviewHtml(full.html, lang, dateTitle);
+            setContent({ html: cleanHtml2, items: full.items, intro: full.intro });
+            try {
+              localStorage.setItem(
+                "flux:overview:today",
+                JSON.stringify({ html: cleanHtml2, items: full.items, intro: full.intro, date: new Date().toISOString() })
+              );
+              setLastUpdated(new Date());
+            } catch {}
+          } catch (e2) {
+            console.warn("[overview] background enrich failed", e2);
+          }
+        })();
+      }
+      const cleanHtmlFinal = sanitizeOverviewHtml(j!.html, lang, dateTitle);
+      setContent({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro });
       try {
         localStorage.setItem(
           "flux:overview:today",
-          JSON.stringify({ html: cleanHtml, date: new Date().toISOString() })
+          JSON.stringify({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro, date: new Date().toISOString() })
         );
         setLastUpdated(new Date());
       } catch {}
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === "AbortError") {
         toast.error("Temps dépassé. Réessaie dans un instant.");
+        console.warn("[overview] generate: abort", e);
       } else if (typeof e === "object" && e && "message" in e) {
         const messageVal = (e as { message?: unknown }).message;
         const msg = typeof messageVal === "string" ? messageVal : String(messageVal ?? "");
         if (msg.toLowerCase().includes("abort")) {
           toast.error("Temps dépassé. Réessaie dans un instant.");
+          console.warn("[overview] generate: abort-msg", msg);
         } else {
           console.error(e);
           toast.error("Failed to generate");
@@ -228,6 +307,57 @@ export function Overview() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgOpen]);
+
+  // Compléter côté client les images manquantes (evite le budget côté serveur)
+  useEffect(() => {
+    if (!content?.items || fillingImagesRef.current) return;
+    const missing = content.items.filter((it) => !it.image && it.link);
+    if (!missing.length) return;
+    fillingImagesRef.current = true;
+    (async () => {
+      try {
+        const cap = Math.min(24, missing.length);
+        const slice = missing.slice(0, cap);
+        console.log("[overview] client-fill: start", { missing: missing.length, attempting: slice.length });
+        const results = await Promise.allSettled(
+          slice.map(async (it) => {
+            try {
+              const r = await fetch(`/api/og-image?u=${encodeURIComponent(it.link as string)}`);
+              if (!r.ok) return null;
+              const j = (await r.json()) as { image?: string | null };
+              return { link: it.link, image: j?.image || null } as { link: string | null; image: string | null };
+            } catch {
+              return null;
+            }
+          })
+        );
+        const updates = new Map<string, string>();
+        for (const res of results) {
+          if (res.status === "fulfilled" && res.value && res.value.link && res.value.image) {
+            updates.set(res.value.link, res.value.image);
+          }
+        }
+        console.log("[overview] client-fill: done", { updated: updates.size });
+        if (updates.size) {
+          setContent((prev) => {
+            if (!prev?.items) return prev;
+            const nextItems = prev.items.map((it) =>
+              !it.image && it.link && updates.has(it.link) ? { ...it, image: updates.get(it.link) || it.image } : it
+            );
+            try {
+              localStorage.setItem(
+                "flux:overview:today",
+                JSON.stringify({ html: prev.html, items: nextItems, intro: prev.intro, date: new Date().toISOString() })
+              );
+            } catch {}
+            return { ...prev, items: nextItems };
+          });
+        }
+      } finally {
+        fillingImagesRef.current = false;
+      }
+    })();
+  }, [content?.items]);
 
   if (!content) {
     const updatedLabel = lastUpdated
@@ -364,6 +494,150 @@ export function Overview() {
               pointer-events: none;
             }
           `}</style>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Rendu éditorial si items présents
+  if (content?.items && content.items.length) {
+    const items = content.items;
+    const featured = items[0];
+    const rest = items.slice(1);
+    return (
+      <div className="max-w-5xl mx-auto px-3 sm:px-0">
+        <div className="flex items-center justify-between gap-4 not-prose mb-4">
+          <div>
+            <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
+              <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
+              <span className="first-letter:uppercase">{dateRest}</span>
+            </h1>
+            {lastUpdated ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t(lang, "lastUpdatedLabel")}: {format(lastUpdated, lang === "fr" ? "d MMM yyyy 'à' HH:mm" : "MMM d, yyyy 'at' p", { locale: lang === "fr" ? frLocale : enUS })}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Dialog open={bgOpen} onOpenChange={setBgOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" title={lang === "fr" ? "Arrière-plan" : "Background"}>
+                  <ImageIcon className="w-4 h-4" />
+                </Button>
+              </DialogTrigger>
+              {/* Réutilisation du contenu de dialog existant (recherche Unsplash) */}
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>{lang === "fr" ? "Image d’arrière-plan" : "Background image"}</DialogTitle>
+                  <DialogDescription>
+                    {lang === "fr" ? "Saisis un mot-clé, cherche sur Unsplash et choisis une image." : "Enter a keyword, search Unsplash and pick an image."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input value={bgQuery} onChange={(e) => setBgQuery(e.target.value)} placeholder={lang === "fr" ? "Mot-clé (ex: nature, ville)" : "Keyword (e.g. nature, city)"} />
+                    <Button variant="outline" onClick={() => void searchUnsplash(1)} title={lang === "fr" ? "Rechercher" : "Search"}>
+                      <RefreshCcw className={loadingUnsplash ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {unsplashResults.length === 0 ? (
+                      <div className="col-span-3 text-sm text-muted-foreground">{lang === "fr" ? "Aucune image. Saisis une clé et lance une recherche." : "No images. Enter a key and run a search."}</div>
+                    ) : (
+                      unsplashResults.map((r, i) => {
+                        const u = r.thumb || r.small || r.regular || r.full || "";
+                        return (
+                          <button key={r.id || i} type="button" onClick={() => applyBackground(r.regular || r.full || u, bgQuery)} className="relative group overflow-hidden rounded-md border hover:ring-2 hover:ring-ring" title={lang === "fr" ? "Choisir" : "Select"}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={u} alt="bg" className="w-full h-24 object-cover" />
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  {unsplashHasMore ? (
+                    <div className="mt-3 flex justify-center">
+                      <Button variant="outline" onClick={() => void searchUnsplash(unsplashPage + 1)} disabled={loadingUnsplash}>
+                        {loadingUnsplash ? (<span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {lang === "fr" ? "Chargement…" : "Loading…"}</span>) : (lang === "fr" ? "Charger plus" : "Load more")}
+                      </Button>
+                    </div>
+                  ) : null}
+                  {bgUrl ? (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs text-muted-foreground truncate max-w-[70%]">{bgQuery ? `“${bgQuery}”` : ""}</span>
+                      <Button variant="destructive" size="icon" onClick={clearBackground} title={lang === "fr" ? "Supprimer" : "Remove"}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button onClick={generate} disabled={generating} variant="outline">
+              {generating ? (<span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {t(lang, "generatingResume")}</span>) : (t(lang, "updateResume"))}
+            </Button>
+          </div>
+        </div>
+
+        {/* Fond fixe pour la section overview comme avant */}
+        {bgUrl ? (
+          <style jsx global>{`
+            #flux-main { position: relative; z-index: 0; }
+            #flux-main::before {
+              content: "";
+              position: fixed;
+              top: 0; left: var(--sidebar-w, 280px); right: 0; bottom: 0;
+              background-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0.6)), url(${bgUrl});
+              background-size: cover; background-position: center center; background-repeat: no-repeat;
+              z-index: -1; pointer-events: none;
+            }
+            :root.light #flux-main::before, .light #flux-main::before, [data-theme="light"] #flux-main::before, .theme-light #flux-main::before {
+              background-image: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.6)), url(${bgUrl});
+            }
+          `}</style>
+        ) : null}
+
+        {/* Featured */}
+        {featured ? (
+          <a href={featured.link || undefined} target="_blank" rel="noreferrer" className="block w-full">
+            <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[420px] group">
+              <div className="absolute inset-0 bg-muted" />
+              {proxyImage(featured.image) ? (
+                <img src={proxyImage(featured.image) as string} alt="" className="absolute inset-0 object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+              ) : null}
+              <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
+                <div className="text-xs mb-2 text-white/80">
+                  {featured.pubDate ? format(new Date(featured.pubDate), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                </div>
+                <h2 className="text-2xl md:text-3xl font-semibold leading-tight mb-2 text-white drop-shadow">{featured.title}</h2>
+                {featured.summary ? (<p className="text-sm md:text-base max-w-3xl line-clamp-3 drop-shadow text-white/80">{featured.summary}</p>) : null}
+              </div>
+            </div>
+          </a>
+        ) : null}
+
+        {/* Grid */}
+        {rest.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {rest.map((it, idx) => (
+              <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(it.image) ? (
+                      <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">
+                      {it.pubDate ? format(new Date(it.pubDate), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
+                    {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
         ) : null}
       </div>
     );
