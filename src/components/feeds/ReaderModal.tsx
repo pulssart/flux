@@ -29,6 +29,29 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   const [xText, setXText] = useState("");
   const [xStyle, setXStyle] = useState<string>("casual");
 
+  function tryConsumeToken(): boolean {
+    try {
+      const key = "flux:ai:tokens";
+      const today = new Date().toISOString().slice(0, 10);
+      const raw = localStorage.getItem(key);
+      let left = 30;
+      let date = today;
+      if (raw) {
+        const j = JSON.parse(raw) as { date?: string; left?: number };
+        if (j && j.date === today && typeof j.left === "number") {
+          left = Math.max(0, j.left);
+        }
+      }
+      if (left <= 0) return false;
+      left = left - 1;
+      localStorage.setItem(key, JSON.stringify({ date, left }));
+      window.dispatchEvent(new Event("flux:ai:token:consume"));
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
   useEffect(() => {
     try {
       const s = localStorage.getItem("flux:xpost:style") || "casual";
@@ -38,6 +61,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
 
   useEffect(() => {
     if (!open || !article?.link) return;
+    if (!tryConsumeToken()) return;
     setLoading(true);
     setSummary("");
     setLoadingStep(0);
@@ -219,6 +243,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             <Button
               disabled={xLoading}
               onClick={async () => {
+                if (!tryConsumeToken()) return;
                 if (!article?.link) return;
                 setXLoading(true);
                 try {

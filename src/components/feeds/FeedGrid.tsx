@@ -134,6 +134,10 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   }
 
   async function playArticle(article: Article) {
+    // Consommer 1 token pour TTS article
+    try {
+      window.dispatchEvent(new Event("flux:ai:token:consume"));
+    } catch {}
     if (!article.link) return;
     setGeneratingId(article.id);
     try {
