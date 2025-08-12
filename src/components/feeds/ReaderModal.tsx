@@ -61,7 +61,10 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
 
   useEffect(() => {
     if (!open || !article?.link) return;
-    if (!tryConsumeToken()) return;
+    if (!tryConsumeToken()) {
+      toast.error(lang === "fr" ? "Plus de tokens aujourd'hui." : "No tokens left today.");
+      return;
+    }
     setLoading(true);
     setSummary("");
     setLoadingStep(0);
@@ -112,6 +115,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         overlayClassName={resolvedTheme === "dark" ? "bg-neutral-900" : "bg-neutral-100"}
         noMaxWidth
         showCloseButton={false}
+        aria-describedby={undefined}
       >
         <div className={`border-0 ${themeClass} max-h-[92vh] flex flex-col shadow-2xl shadow-black/20`}> 
           <DialogHeader className="p-6 pb-2" aria-describedby={undefined}>
@@ -191,7 +195,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
 
     {/* Modale de génération Post X */}
     <Dialog open={xOpen} onOpenChange={setXOpen}>
-      <DialogContent className="w-[92vw] max-w-2xl sm:max-w-3xl">
+      <DialogContent className="w-[92vw] max-w-2xl sm:max-w-3xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t(lang, "writeAbout")}</DialogTitle>
         </DialogHeader>
@@ -243,7 +247,10 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             <Button
               disabled={xLoading}
               onClick={async () => {
-                if (!tryConsumeToken()) return;
+                if (!tryConsumeToken()) {
+                  toast.error(lang === "fr" ? "Plus de tokens aujourd'hui." : "No tokens left today.");
+                  return;
+                }
                 if (!article?.link) return;
                 setXLoading(true);
                 try {

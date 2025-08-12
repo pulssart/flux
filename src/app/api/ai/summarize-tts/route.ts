@@ -73,10 +73,9 @@ export async function POST(req: NextRequest) {
           );
         }
         const message = e instanceof Error ? e.message : String(e);
-        return NextResponse.json(
-          { error: message, stage: "summary" },
-          { status: 500 }
-        );
+        // Fallback minimal: tronquer le contenu nettoyé si le modèle échoue
+        const fallback = limited.slice(0, 800);
+        return NextResponse.json({ text: fallback, partial: true, reason: "summary-fallback", error: message }, { status: 200 });
       }
 
       if (textOnly) {
@@ -129,10 +128,7 @@ export async function POST(req: NextRequest) {
           );
         }
         const message = e instanceof Error ? e.message : String(e);
-        return NextResponse.json(
-          { error: message, stage: "tts" },
-          { status: 500 }
-        );
+        return NextResponse.json({ text: finalText, partial: true, reason: "tts-failed", error: message }, { status: 200 });
       }
 
       return NextResponse.json({ text: finalText, audio: audioBase64 }, { status: 200 });
