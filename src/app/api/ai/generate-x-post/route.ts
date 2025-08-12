@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       technical: "technique, clair, sans jargon inutile",
       humorous: "humour léger et discret, registre parlé",
       formal: "formel, sérieux",
+      very_personal: "très personnel, assumé, avis explicite, registre parlé",
     };
     const styleMapEn: Record<string, string> = {
       casual: "casual, natural, spoken register",
@@ -37,9 +38,10 @@ export async function POST(req: NextRequest) {
       technical: "technical, clear, no unnecessary jargon",
       humorous: "light, discreet humor, spoken register",
       formal: "formal, serious",
+      very_personal: "very personal, explicit opinion, spoken register",
     };
     const styleDesc = (lang === "fr" ? styleMapFr : styleMapEn)[style] || (lang === "fr" ? styleMapFr.casual : styleMapEn.casual);
-    const personalStyles = new Set(["casual", "enthusiastic", "humorous"]);
+    const personalStyles = new Set(["casual", "enthusiastic", "humorous", "very_personal"]);
     const personalHintFr = personalStyles.has(style)
       ? " Utilise une voix personnelle (\"je\" ou \"on\" quand pertinent), des tournures naturelles, quelques ellipses ou questions rhétoriques si ça aide."
       : "";

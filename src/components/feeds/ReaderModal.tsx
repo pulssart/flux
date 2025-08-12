@@ -195,6 +195,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               <option value="technical">{t(lang, "styleTechnical")}</option>
               <option value="humorous">{t(lang, "styleHumorous")}</option>
               <option value="formal">{t(lang, "styleFormal")}</option>
+              <option value="very_personal">{t(lang, "styleVeryPersonal")}</option>
             </select>
             <p className="text-xs text-muted-foreground">{t(lang, "writingStyleHelp")}</p>
           </div>

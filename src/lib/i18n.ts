@@ -116,6 +116,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     styleTechnical: "Technique (clair)",
     styleHumorous: "Humour léger",
     styleFormal: "Formel (sérieux)",
+    styleVeryPersonal: "Très personnel (avis)",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -228,6 +229,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     styleTechnical: "Technical (clear)",
     styleHumorous: "Light humor",
     styleFormal: "Formal (serious)",
+    styleVeryPersonal: "Very personal (opinion)",
   },
 };
 
