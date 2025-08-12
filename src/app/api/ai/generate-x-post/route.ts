@@ -43,17 +43,17 @@ export async function POST(req: NextRequest) {
     const styleDesc = (lang === "fr" ? styleMapFr : styleMapEn)[style] || (lang === "fr" ? styleMapFr.casual : styleMapEn.casual);
     const personalStyles = new Set(["casual", "enthusiastic", "humorous", "very_personal"]);
     const personalHintFr = personalStyles.has(style)
-      ? " Utilise une voix personnelle (\"je\" ou \"on\" quand pertinent), des tournures naturelles, quelques ellipses ou questions rhétoriques si ça aide."
+      ? " Utilise une voix personnelle (\"je\" ou \"on\" quand pertinent), des tournures naturelles, ellipses autorisées."
       : "";
     const personalHintEn = personalStyles.has(style)
-      ? " Use a personal voice (first person or inclusive 'we' when relevant), natural phrasing, occasional ellipses or rhetorical questions if it helps."
+      ? " Use a personal voice (first person or inclusive 'we' when relevant), natural phrasing; ellipses allowed."
       : "";
     const sys = lang === "fr"
-      ? `Tu écris un post pour X, style ${styleDesc}.${personalHintFr} NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
-      : `You write an X post in a ${styleDesc} tone.${personalHintEn} DO NOT include any URL or emojis. Reply with the post text only.`;
+      ? `Tu écris un post pour X, style ${styleDesc}.${personalHintFr} Formate pour X (lignes courtes, sauts de ligne pour aérer si utile). NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
+      : `You write an X post in a ${styleDesc} tone.${personalHintEn} Format for X (short lines, line breaks to improve readability when useful). DO NOT include any URL or emojis. Reply with the post text only.`;
     const user = lang === "fr"
-      ? `Titre: ${safeTitle}\nRésumé: ${safeSummary}\nContexte (ne pas inclure dans le post): ${safeUrl}\n\nContraintes: 1) ≤ 240 caractères 2) Style respecté 3) AUCUN lien 4) AUCUN emoji 5) Pas de hashtags inutiles 6) Français courant, facile à lire.`
-      : `Title: ${safeTitle}\nSummary: ${safeSummary}\nContext (do not include in post): ${safeUrl}\n\nConstraints: 1) ≤ 240 chars 2) Respect the chosen style 3) NO link 4) NO emojis 5) No unnecessary hashtags 6) Plain, easy English.`;
+      ? `Titre: ${safeTitle}\nRésumé: ${safeSummary}\nContexte (ne pas inclure dans le post): ${safeUrl}\n\nContraintes: 1) ≤ 240 caractères (y compris sauts de ligne) 2) Style respecté 3) AUCUN lien 4) AUCUN emoji 5) Pas de hashtags inutiles 6) Français courant, facile à lire, lignes courtes et aération 7) Ne pose AUCUNE question 8) Introduis 1 ou 2 micro-fautes naturelles (orthographe/accord/pontuation très légères) pour un rendu plus humain.`
+      : `Title: ${safeTitle}\nSummary: ${safeSummary}\nContext (do not include in post): ${safeUrl}\n\nConstraints: 1) ≤ 240 chars (including line breaks) 2) Respect the chosen style 3) NO link 4) NO emojis 5) No unnecessary hashtags 6) Plain, easy English with short lines and breathing space 7) Do NOT ask any question 8) Add 1–2 tiny, natural mistakes (spelling/grammar/punctuation, very subtle) to feel human.`;
 
     const key = process.env.OPENAI_API_KEY || apiKey;
     if (!key) return NextResponse.json({ error: "Missing OpenAI key" }, { status: 401 });
