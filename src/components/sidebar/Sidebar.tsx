@@ -102,17 +102,17 @@ function exportAllData() {
     exportedAt: new Date().toISOString(),
     feeds: JSON.parse(feedsStr),
     folders: JSON.parse(foldersStr),
-    settings: { aiKey, aiVoice, lang },
+    settings: { aiKey, aiVoice, lang, xStyle: localStorage.getItem("flux:xpost:style") || "casual" },
   };
 }
 
-type ImportData = { feeds?: unknown; folders?: unknown; settings?: { aiKey?: unknown; aiVoice?: unknown; lang?: unknown } };
+type ImportData = { feeds?: unknown; folders?: unknown; settings?: { aiKey?: unknown; aiVoice?: unknown; lang?: unknown; xStyle?: unknown } };
 function importAllData(json: ImportData) {
   try {
     if (!json || typeof json !== "object") throw new Error("invalid");
     const feeds = Array.isArray(json.feeds) ? (json.feeds as FeedInfo[]) : [];
     const folders = Array.isArray(json.folders) ? (json.folders as FolderInfo[]) : [];
-    const settings = json.settings && typeof json.settings === "object" ? (json.settings as { aiKey?: unknown; aiVoice?: unknown; lang?: unknown }) : {};
+    const settings = json.settings && typeof json.settings === "object" ? (json.settings as { aiKey?: unknown; aiVoice?: unknown; lang?: unknown; xStyle?: unknown }) : {};
 
     // bascule state
     localStorage.setItem("flux:feeds", JSON.stringify(feeds));
@@ -120,6 +120,7 @@ function importAllData(json: ImportData) {
     if (typeof settings.aiKey === "string") localStorage.setItem("flux:ai:openai", settings.aiKey);
     if (typeof settings.aiVoice === "string") localStorage.setItem("flux:ai:voice", settings.aiVoice);
     if (typeof settings.lang === "string") localStorage.setItem("flux:lang", settings.lang);
+    if (typeof settings.xStyle === "string") localStorage.setItem("flux:xpost:style", settings.xStyle);
   } catch (e) {
     throw e;
   }
@@ -146,6 +147,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const [refreshTick, setRefreshTick] = useState(0);
   const [aiKey, setAiKey] = useState("");
   const [aiVoice, setAiVoice] = useState("alloy");
+  const [xStyle, setXStyle] = useState<string>("casual");
   const [authLoading, setAuthLoading] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionAvatarUrl, setSessionAvatarUrl] = useState<string | null>(null);
@@ -184,6 +186,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       setAiKey(k);
       const v = localStorage.getItem("flux:ai:voice") || "alloy";
       setAiVoice(v);
+      const s = localStorage.getItem("flux:xpost:style") || "casual";
+      setXStyle(s);
     } catch {}
     // Récupérer la session Supabase côté client
     (async () => {
@@ -235,6 +239,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     return {
       lang,
       aiVoice,
+      writingStyle: xStyle,
       theme: mounted ? (theme ?? resolvedTheme) : "system",
     };
   }
@@ -1070,6 +1075,28 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 <option value="sage">Sage</option>
               </select>
               <p className="text-xs text-muted-foreground">{t(lang, "aiVoiceHelp")}</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">{t(lang, "writingStyleLabel")}</Label>
+              <select
+                className="w-full bg-background border rounded-md px-3 py-2 text-sm"
+                value={xStyle}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setXStyle(v);
+                  try { localStorage.setItem("flux:xpost:style", v); } catch {}
+                }}
+              >
+                <option value="casual">{t(lang, "styleCasual")}</option>
+                <option value="concise">{t(lang, "styleConcise")}</option>
+                <option value="journalistic">{t(lang, "styleJournalistic")}</option>
+                <option value="analytical">{t(lang, "styleAnalytical")}</option>
+                <option value="enthusiastic">{t(lang, "styleEnthusiastic")}</option>
+                <option value="technical">{t(lang, "styleTechnical")}</option>
+                <option value="humorous">{t(lang, "styleHumorous")}</option>
+                <option value="formal">{t(lang, "styleFormal")}</option>
+              </select>
+              <p className="text-xs text-muted-foreground">{t(lang, "writingStyleHelp")}</p>
             </div>
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "backupLabel")}</Label>

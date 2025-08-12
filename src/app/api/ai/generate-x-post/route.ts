@@ -10,15 +10,38 @@ export async function POST(req: NextRequest) {
       url?: string;
       lang?: "fr" | "en";
       apiKey?: string;
+      style?: string;
     };
-    const { title = "", summary = "", url = "", lang = "fr", apiKey = "" } = body;
+    const { title = "", summary = "", url = "", lang = "fr", apiKey = "", style: styleInput = "" } = body;
     const trimmed = (s: string) => s.replace(/\s+/g, " ").trim();
     const safeTitle = trimmed(title).slice(0, 200);
     const safeSummary = trimmed(summary).slice(0, 1000);
     const safeUrl = trimmed(url);
+    const style = String(styleInput || "casual").toLowerCase();
+    const styleMapFr: Record<string, string> = {
+      casual: "casual, naturel",
+      concise: "très concis, phrases courtes",
+      journalistic: "journalistique, neutre",
+      analytical: "analytique, avec un insight",
+      enthusiastic: "enthousiaste mais sobre",
+      technical: "technique, clair, sans jargon inutile",
+      humorous: "humour léger et discret",
+      formal: "formel, sérieux",
+    };
+    const styleMapEn: Record<string, string> = {
+      casual: "casual, natural",
+      concise: "very concise, short sentences",
+      journalistic: "journalistic, neutral",
+      analytical: "analytical, with an insight",
+      enthusiastic: "enthusiastic but subtle",
+      technical: "technical, clear, no unnecessary jargon",
+      humorous: "light, discreet humor",
+      formal: "formal, serious",
+    };
+    const styleDesc = (lang === "fr" ? styleMapFr : styleMapEn)[style] || (lang === "fr" ? styleMapFr.casual : styleMapEn.casual);
     const sys = lang === "fr"
-      ? "Tu écris un post pour X, style conversationnel, simple, naturel. NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post."
-      : "You write an X post in a conversational, simple, casual tone. DO NOT include any URL or emojis. Reply with the post text only.";
+      ? `Tu écris un post pour X, style ${styleDesc}. NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
+      : `You write an X post in a ${styleDesc} tone. DO NOT include any URL or emojis. Reply with the post text only.`;
     const user = lang === "fr"
       ? `Titre: ${safeTitle}\nRésumé: ${safeSummary}\nContexte (ne pas inclure dans le post): ${safeUrl}\n\nContraintes: 1) ≤ 240 caractères 2) Ton casual, facile à lire, sans jargon 3) AUCUN lien 4) AUCUN emoji 5) Pas de hashtags inutiles.`
       : `Title: ${safeTitle}\nSummary: ${safeSummary}\nContext (do not include in post): ${safeUrl}\n\nConstraints: 1) ≤ 240 chars 2) Casual, easy-to-read tone, no jargon 3) NO link 4) NO emojis 5) No unnecessary hashtags.`;
@@ -47,7 +70,11 @@ export async function POST(req: NextRequest) {
       j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
     } catch {}
     if (!res.ok) {
-      const errText = (j as any)?.error?.message || (await res.text().catch(() => ""));
+      const errText = (
+        j && typeof (j as { error?: { message?: string } }).error?.message === "string"
+          ? ((j as { error?: { message?: string } }).error?.message as string)
+          : await res.text().catch(() => "")
+      );
       return NextResponse.json({ error: `OpenAI: ${errText || res.statusText}` }, { status: 400 });
     }
     if (!j) return NextResponse.json({ error: "No response" }, { status: 400 });

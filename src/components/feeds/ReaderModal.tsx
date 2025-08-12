@@ -191,6 +191,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                       url: article.link,
                       lang,
                       apiKey: apiKey || undefined,
+                      style: (localStorage.getItem("flux:xpost:style") || "casual"),
                     }),
                   });
                   const j = await res.json();
