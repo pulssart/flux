@@ -53,6 +53,8 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+  // Identifiant spécial pour l'audio "digest du jour"
+  const DIGEST_ID = "__digest__";
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string; image?: string } | null>(null);
