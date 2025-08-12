@@ -8,7 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { DndContext, closestCenter } from "@dnd-kit/core";
+import {
+  DndContext,
+  closestCorners,
+  DragOverlay,
+  useDroppable,
+  useSensor,
+  useSensors,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+} from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
@@ -142,6 +152,10 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const syncTimerRef = useRef<number | null>(null);
   const periodicSyncRef = useRef<number | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [activeDrag, setActiveDrag] = useState<{ id: string; kind: "feed" | "folder"; title: string } | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const hoverExpandTimerRef = useRef<number | null>(null);
+  const hoverFolderRef = useRef<string | null>(null);
   useEffect(() => setMounted(true), []);
 
   // Modale d'update: version courante, à incrémenter pour réafficher
@@ -495,6 +509,12 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     if (!over) return;
     const a = parseDragId(active.id);
     const b = parseDragId(over.id);
+    setActiveDrag(null);
+    setOverId(null);
+    if (hoverExpandTimerRef.current) {
+      window.clearTimeout(hoverExpandTimerRef.current);
+      hoverExpandTimerRef.current = null;
+    }
     if (a.kind === "feed" && b.kind === "folder") {
       // Déposer un feed dans un dossier (ne pas retirer l'objet du master list feeds[])
       const sourceFolderId = isFeedInAnyFolder(a.id);
@@ -576,6 +596,59 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       }
     }
   }
+
+  function handleDragStart(event: { active: { id: string | number } }) {
+    const a = parseDragId(event.active.id);
+    let title = "";
+    if (a.kind === "feed") {
+      const f = feeds.find((x) => x.id === a.id);
+      title = f?.title || "";
+    } else {
+      const f = folders.find((x) => x.id === a.id);
+      title = f?.title || "";
+    }
+    setActiveDrag({ id: String(event.active.id), kind: a.kind, title });
+  }
+
+  function handleDragOver(event: { over: { id: string | number } | null }) {
+    const over = event.over ? String(event.over.id) : null;
+    setOverId(over);
+    // Auto-expand des dossiers après survol prolongé
+    if (over && over.startsWith("folder:")) {
+      const folderId = over.slice(7);
+      if (hoverFolderRef.current !== folderId) {
+        if (hoverExpandTimerRef.current) window.clearTimeout(hoverExpandTimerRef.current);
+        hoverFolderRef.current = folderId;
+        const folder = folders.find((f) => f.id === folderId);
+        if (folder && folder.collapsed) {
+          hoverExpandTimerRef.current = window.setTimeout(() => {
+            toggleFolderCollapsed(folderId);
+          }, 500) as unknown as number;
+        }
+      }
+    } else {
+      hoverFolderRef.current = null;
+      if (hoverExpandTimerRef.current) {
+        window.clearTimeout(hoverExpandTimerRef.current);
+        hoverExpandTimerRef.current = null;
+      }
+    }
+  }
+
+  function handleDragCancel() {
+    setActiveDrag(null);
+    setOverId(null);
+    if (hoverExpandTimerRef.current) {
+      window.clearTimeout(hoverExpandTimerRef.current);
+      hoverExpandTimerRef.current = null;
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
 
   const empty = feeds.length === 0;
 
@@ -758,7 +831,15 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       </div>
       <Separator />
       {!collapsed ? (
-        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+          modifiers={[restrictToVerticalAxis]}
+        >
           {/* Aperçu + Dossiers + Flux */}
           {(() => {
             const topLevelFeeds = feeds.filter((f) => !isFeedInAnyFolder(f.id));
@@ -796,6 +877,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                         onRemoveFolder={removeFolder}
                         onToggleCollapsed={toggleFolderCollapsed}
                         tick={refreshTick}
+                        isOver={overId === `folder:${folder.id}`}
                       />
                     ))}
                     {topLevelFeeds.length > 0 && (
@@ -821,6 +903,17 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               </SortableContext>
             );
           })()}
+          <DragOverlay>
+            {activeDrag ? (
+              activeDrag.kind === "feed" ? (
+                <div className="px-2 py-2 rounded border bg-background shadow-sm text-sm">{activeDrag.title || "Feed"}</div>
+              ) : (
+                <div className="px-2 py-2 rounded border bg-background shadow-sm text-sm flex items-center gap-2">
+                  <Folder size={14} /> {activeDrag.title || "Folder"}
+                </div>
+              )
+            ) : null}
+          </DragOverlay>
         </DndContext>
       ) : (
         <ScrollArea className="flex-1 min-h-0">
@@ -1295,6 +1388,7 @@ function SidebarFolderItem({
   onRemoveFolder,
   onToggleCollapsed,
   tick,
+  isOver,
 }: {
   folder: FolderInfo;
   feeds: FeedInfo[];
@@ -1306,6 +1400,7 @@ function SidebarFolderItem({
   onRemoveFolder: (id: string) => void;
   onToggleCollapsed: (id: string) => void;
   tick: number;
+  isOver?: boolean;
 }) {
   const [lang] = useLang();
   const [editing, setEditing] = useState(false);
@@ -1326,7 +1421,7 @@ function SidebarFolderItem({
       <div
         className={cn(
           "flex items-center gap-2 px-2 py-2 rounded cursor-pointer border",
-          "border-transparent hover:bg-muted/50"
+          isOver ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/50"
         )}
         onClick={() => onToggleCollapsed(folder.id)}
         role="button"

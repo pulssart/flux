@@ -701,7 +701,7 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
             {!isPlaying && !isGenerating && (
               <button
                 type="button"
-                className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 backdrop-blur-sm hover:bg-black/70"
+                className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 backdrop-blur-sm hover:bg-black/70"
                 title="Lire le résumé audio"
                 onClick={(e) => {
                   e.preventDefault();
