@@ -95,6 +95,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     loginDescription: "Connectez-vous pour sauvegarder vos préférences et accéder à l'application.",
     syncNow: "Synchroniser maintenant",
     syncing: "Synchronisation…",
+    loginBenefitSync: "Vos flux et dossiers synchronisés sur tous vos appareils",
+    loginBenefitBackup: "Sauvegarde automatique de votre organisation",
+    loginBenefitSecurity: "Connexion sécurisée via Google (aucun mot de passe à gérer)",
+    loginPrivacyNote: "Nous n'accédons qu'à votre adresse email et votre avatar pour votre session. Aucune donnée n'est partagée avec des tiers.",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -186,6 +190,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     loginDescription: "Sign in to save your preferences and access the app.",
     syncNow: "Sync now",
     syncing: "Syncing…",
+    loginBenefitSync: "Your feeds and folders sync across devices",
+    loginBenefitBackup: "Automatic backup of your organization",
+    loginBenefitSecurity: "Secure sign-in with Google (no passwords to manage)",
+    loginPrivacyNote: "We only use your email and avatar for your session. No data is shared with third parties.",
   },
 };
 
