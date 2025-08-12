@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       analytical: "analytique, avec un insight",
       enthusiastic: "enthousiaste mais sobre, registre parlé",
       technical: "technique, clair, sans jargon inutile",
-      humorous: "humour léger et discret, registre parlé",
+      humorous: "très personnel, humour léger et discret avec un twist sarcastique, registre parlé",
       formal: "formel, sérieux",
       very_personal: "très personnel, assumé, avis explicite, registre parlé",
     };
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       analytical: "analytical, with an insight",
       enthusiastic: "enthusiastic but subtle, spoken register",
       technical: "technical, clear, no unnecessary jargon",
-      humorous: "light, discreet humor, spoken register",
+      humorous: "very personal, light humor with a subtle sarcastic twist, spoken register",
       formal: "formal, serious",
       very_personal: "very personal, explicit opinion, spoken register",
     };
@@ -48,9 +48,11 @@ export async function POST(req: NextRequest) {
     const personalHintEn = personalStyles.has(style)
       ? " Use a personal voice (first person or inclusive 'we' when relevant), natural phrasing; ellipses allowed."
       : "";
+    const humorHintFr = style === "humorous" ? " Sarcasme très léger autorisé, sans méchanceté ni caricature." : "";
+    const humorHintEn = style === "humorous" ? " Subtle sarcasm allowed, no meanness or caricature." : "";
     const sys = lang === "fr"
-      ? `Tu écris un post pour X, style ${styleDesc}.${personalHintFr} Formate pour X (lignes courtes, sauts de ligne pour aérer si utile). NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
-      : `You write an X post in a ${styleDesc} tone.${personalHintEn} Format for X (short lines, line breaks to improve readability when useful). DO NOT include any URL or emojis. Reply with the post text only.`;
+      ? `Tu écris un post pour X, style ${styleDesc}.${personalHintFr}${humorHintFr} Formate pour X (lignes courtes, sauts de ligne pour aérer si utile). NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
+      : `You write an X post in a ${styleDesc} tone.${personalHintEn}${humorHintEn} Format for X (short lines, line breaks to improve readability when useful). DO NOT include any URL or emojis. Reply with the post text only.`;
     const user = lang === "fr"
       ? `Titre: ${safeTitle}\nRésumé: ${safeSummary}\nContexte (ne pas inclure dans le post): ${safeUrl}\n\nContraintes: 1) ≤ 240 caractères (y compris sauts de ligne) 2) Style respecté 3) AUCUN lien 4) AUCUN emoji 5) Pas de hashtags inutiles 6) Français courant, facile à lire, lignes courtes et aération 7) Ne pose AUCUNE question 8) Introduis 1 ou 2 micro-fautes naturelles (orthographe/accord/pontuation très légères) pour un rendu plus humain.`
       : `Title: ${safeTitle}\nSummary: ${safeSummary}\nContext (do not include in post): ${safeUrl}\n\nConstraints: 1) ≤ 240 chars (including line breaks) 2) Respect the chosen style 3) NO link 4) NO emojis 5) No unnecessary hashtags 6) Plain, easy English with short lines and breathing space 7) Do NOT ask any question 8) Add 1–2 tiny, natural mistakes (spelling/grammar/punctuation, very subtle) to feel human.`;
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: user },
         ],
         temperature: 0.7,
-        max_tokens: 160,
+        max_tokens: 320,
       }),
     });
     let j: { choices?: Array<{ message?: { content?: string } }> } | null = null;
