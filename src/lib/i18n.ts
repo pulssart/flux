@@ -99,6 +99,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     loginBenefitBackup: "Sauvegarde automatique de votre organisation",
     loginBenefitSecurity: "Connexion sécurisée via Google (aucun mot de passe à gérer)",
     loginPrivacyNote: "Nous n'accédons qu'à votre adresse email et votre avatar pour votre session. Aucune donnée n'est partagée avec des tiers.",
+    openReader: "Ouvrir le lecteur",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -194,6 +195,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     loginBenefitBackup: "Automatic backup of your organization",
     loginBenefitSecurity: "Secure sign-in with Google (no passwords to manage)",
     loginPrivacyNote: "We only use your email and avatar for your session. No data is shared with third parties.",
+    openReader: "Open reader",
   },
 };
 

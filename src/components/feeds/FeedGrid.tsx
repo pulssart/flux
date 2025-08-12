@@ -385,7 +385,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         <DialogContent className="w-[90vw] max-w-[90vw] sm:max-w-[90vw] p-0 bg-black rounded-2xl overflow-hidden border-white/10" showCloseButton>
           <DialogTitle className="sr-only">Vidéo YouTube</DialogTitle>
           {videoUrl ? (
-            <div className="relative w-full pt-[56.25%] rounded-2xl overflow-hidden">
+      <div className="relative w-full pt-[56.25%] rounded-2xl overflow-hidden">
               <iframe
                 key={videoUrl}
                 src={videoUrl}
@@ -472,22 +472,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
   }
 
   return (
-    <a
-      href={article.link}
-      target="_blank"
-      rel="noreferrer"
-      className="block h-full"
-      onClick={(e) => {
-        if (localIsYouTubeUrl(article.link)) {
-          e.preventDefault();
-          onOpenVideo();
-        } else if (!localIsProductHuntUrl(article.link)) {
-          e.preventDefault();
-          const custom = new CustomEvent("flux:reader:open", { detail: { article } });
-          window.dispatchEvent(custom);
-        }
-      }}
-    >
+    <a href={article.link} target="_blank" rel="noreferrer" className="block h-full">
       <Card className="overflow-hidden border-foreground/10 hover:border-foreground/30 transition-colors h-[350px] flex flex-col p-0 gap-0">
         <div className="relative h-[200px] bg-muted overflow-hidden group">
           {article.image ? (
@@ -503,7 +488,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
               <ImageIcon className="w-6 h-6 text-muted-foreground/40" aria-hidden="true" />
             </div>
           )}
-          {/* Bouton copier lien */}
+          {/* Boutons action: copier lien + lecteur */}
           {article.link ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -518,6 +503,26 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
               <TooltipContent>{copied ? t(lang, "linkCopied") : t(lang, "copyLink")}</TooltipContent>
             </Tooltip>
           ) : null}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="absolute right-2 top-12 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const custom = new CustomEvent("flux:reader:open", { detail: { article } });
+                  window.dispatchEvent(custom);
+                }}
+              >
+                <span className="sr-only">{t(lang, "openReader")}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path d="M4 5a2 2 0 0 1 2-2h6a1 1 0 1 1 0 2H6v12h6a1 1 0 1 1 0 2H6a2 2 0 0 1-2-2V5zm12.293 1.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3A1 1 0 1 1 16.293 13H11a1 1 0 1 1 0-2h5.293l-1.586-1.586a1 1 0 0 1 0-1.414z" />
+                </svg>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t(lang, "openReader")}</TooltipContent>
+          </Tooltip>
           {/* Bouton Play / Stop / Loader */}
           {!isPlaying && !isGenerating && (
             <Tooltip>
@@ -561,18 +566,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, on
             </Tooltip>
           )}
         </div>
-        <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden"
-          onClick={(e) => {
-            // Ouverture lecteur quand on clique sur la carte (hors boutons)
-            if (!localIsYouTubeUrl(article.link) && !localIsProductHuntUrl(article.link)) {
-              e.preventDefault();
-              e.stopPropagation();
-              // Lever un évènement custom que le parent va écouter
-              const custom = new CustomEvent("flux:reader:open", { detail: { article } });
-              window.dispatchEvent(custom);
-            }
-          }}
-        >
+        <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
           <div className="text-xs text-muted-foreground shrink-0">
             {article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : null}
           </div>
