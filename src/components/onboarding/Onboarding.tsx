@@ -36,7 +36,7 @@ export function Onboarding() {
     {
       title: t(lang, "onboardingWelcomeTitle"),
       desc: t(lang, "onboardingWelcomeDesc"),
-      videoEmbed: "https://www.youtube-nocookie.com/embed/3wlL_2347yY?rel=0&modestbranding=1&playsinline=1",
+      videoEmbed: "https://www.youtube-nocookie.com/embed/iTtya8l_ONU?rel=0&modestbranding=1&playsinline=1",
     },
     {
       title: t(lang, "onboardingAddOrganizeTitle"),
