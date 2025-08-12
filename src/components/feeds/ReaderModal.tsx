@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -26,6 +27,14 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   const [xOpen, setXOpen] = useState(false);
   const [xLoading, setXLoading] = useState(false);
   const [xText, setXText] = useState("");
+  const [xStyle, setXStyle] = useState<string>("casual");
+
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem("flux:xpost:style") || "casual";
+      setXStyle(s);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!open || !article?.link) return;
@@ -167,6 +176,28 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             {article?.title ? <div className="truncate"><strong>Titre:</strong> {article.title}</div> : null}
             {article?.link ? <div className="truncate"><strong>URL:</strong> {article.link}</div> : null}
           </div>
+          <div className="space-y-2">
+            <Label className="text-sm">{t(lang, "writingStyleLabel")}</Label>
+            <select
+              className="w-full bg-background border rounded-md px-3 py-2 text-sm"
+              value={xStyle}
+              onChange={(e) => {
+                const v = e.target.value;
+                setXStyle(v);
+                try { localStorage.setItem("flux:xpost:style", v); } catch {}
+              }}
+            >
+              <option value="casual">{t(lang, "styleCasual")}</option>
+              <option value="concise">{t(lang, "styleConcise")}</option>
+              <option value="journalistic">{t(lang, "styleJournalistic")}</option>
+              <option value="analytical">{t(lang, "styleAnalytical")}</option>
+              <option value="enthusiastic">{t(lang, "styleEnthusiastic")}</option>
+              <option value="technical">{t(lang, "styleTechnical")}</option>
+              <option value="humorous">{t(lang, "styleHumorous")}</option>
+              <option value="formal">{t(lang, "styleFormal")}</option>
+            </select>
+            <p className="text-xs text-muted-foreground">{t(lang, "writingStyleHelp")}</p>
+          </div>
           <textarea
             className="w-full h-[28vh] min-h-[180px] max-h-[50vh] resize-vertical overflow-auto border rounded-md bg-background p-3 text-sm leading-relaxed"
             value={xText}
@@ -191,7 +222,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                       url: article.link,
                       lang,
                       apiKey: apiKey || undefined,
-                      style: (localStorage.getItem("flux:xpost:style") || "casual"),
+                      style: xStyle || "casual",
                     }),
                   });
                   const j = await res.json();
