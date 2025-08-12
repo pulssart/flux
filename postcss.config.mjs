@@ -1,6 +1,7 @@
-import tailwindcss from "@tailwindcss/postcss";
-
+// Tailwind v4 + Next.js: déclarer le plugin via son identifiant
+// Réf: https://tailwindcss.com/docs/installation#post-css
 export default {
-  // Utiliser la fonction du plugin (évite l'erreur "plugin must export a function")
-  plugins: [tailwindcss()],
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
 };
