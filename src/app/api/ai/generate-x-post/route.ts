@@ -19,32 +19,39 @@ export async function POST(req: NextRequest) {
     const safeUrl = trimmed(url);
     const style = String(styleInput || "casual").toLowerCase();
     const styleMapFr: Record<string, string> = {
-      casual: "casual, naturel",
+      casual: "casual, naturel, registre parlé",
       concise: "très concis, phrases courtes",
       journalistic: "journalistique, neutre",
       analytical: "analytique, avec un insight",
-      enthusiastic: "enthousiaste mais sobre",
+      enthusiastic: "enthousiaste mais sobre, registre parlé",
       technical: "technique, clair, sans jargon inutile",
-      humorous: "humour léger et discret",
+      humorous: "humour léger et discret, registre parlé",
       formal: "formel, sérieux",
     };
     const styleMapEn: Record<string, string> = {
-      casual: "casual, natural",
+      casual: "casual, natural, spoken register",
       concise: "very concise, short sentences",
       journalistic: "journalistic, neutral",
       analytical: "analytical, with an insight",
-      enthusiastic: "enthusiastic but subtle",
+      enthusiastic: "enthusiastic but subtle, spoken register",
       technical: "technical, clear, no unnecessary jargon",
-      humorous: "light, discreet humor",
+      humorous: "light, discreet humor, spoken register",
       formal: "formal, serious",
     };
     const styleDesc = (lang === "fr" ? styleMapFr : styleMapEn)[style] || (lang === "fr" ? styleMapFr.casual : styleMapEn.casual);
+    const personalStyles = new Set(["casual", "enthusiastic", "humorous"]);
+    const personalHintFr = personalStyles.has(style)
+      ? " Utilise une voix personnelle (\"je\" ou \"on\" quand pertinent), des tournures naturelles, quelques ellipses ou questions rhétoriques si ça aide."
+      : "";
+    const personalHintEn = personalStyles.has(style)
+      ? " Use a personal voice (first person or inclusive 'we' when relevant), natural phrasing, occasional ellipses or rhetorical questions if it helps."
+      : "";
     const sys = lang === "fr"
-      ? `Tu écris un post pour X, style ${styleDesc}. NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
-      : `You write an X post in a ${styleDesc} tone. DO NOT include any URL or emojis. Reply with the post text only.`;
+      ? `Tu écris un post pour X, style ${styleDesc}.${personalHintFr} NE PAS inclure d'URL ni d'emojis. Réponds uniquement par le texte du post.`
+      : `You write an X post in a ${styleDesc} tone.${personalHintEn} DO NOT include any URL or emojis. Reply with the post text only.`;
     const user = lang === "fr"
-      ? `Titre: ${safeTitle}\nRésumé: ${safeSummary}\nContexte (ne pas inclure dans le post): ${safeUrl}\n\nContraintes: 1) ≤ 240 caractères 2) Ton casual, facile à lire, sans jargon 3) AUCUN lien 4) AUCUN emoji 5) Pas de hashtags inutiles.`
-      : `Title: ${safeTitle}\nSummary: ${safeSummary}\nContext (do not include in post): ${safeUrl}\n\nConstraints: 1) ≤ 240 chars 2) Casual, easy-to-read tone, no jargon 3) NO link 4) NO emojis 5) No unnecessary hashtags.`;
+      ? `Titre: ${safeTitle}\nRésumé: ${safeSummary}\nContexte (ne pas inclure dans le post): ${safeUrl}\n\nContraintes: 1) ≤ 240 caractères 2) Style respecté 3) AUCUN lien 4) AUCUN emoji 5) Pas de hashtags inutiles 6) Français courant, facile à lire.`
+      : `Title: ${safeTitle}\nSummary: ${safeSummary}\nContext (do not include in post): ${safeUrl}\n\nConstraints: 1) ≤ 240 chars 2) Respect the chosen style 3) NO link 4) NO emojis 5) No unnecessary hashtags 6) Plain, easy English.`;
 
     const key = process.env.OPENAI_API_KEY || apiKey;
     if (!key) return NextResponse.json({ error: "Missing OpenAI key" }, { status: 401 });
