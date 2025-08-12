@@ -9,12 +9,9 @@ export async function GET(_req: NextRequest) {
     // Tente d'échanger explicitement le code si présent
     const url = new URL(_req.url);
     const code = url.searchParams.get("code");
-    if (code) {
-      // @ts-expect-error - La signature varie selon versions; on laisse Supabase gérer.
-      await supabase.auth.exchangeCodeForSession(code);
-    } else {
-      await supabase.auth.exchangeCodeForSession();
-    }
+    // Supabase SDK 2.55+ accepte l'appel sans argument et lit l'URL actuelle.
+    // Pour compat, on retombe sur l'appel sans paramètre.
+    await supabase.auth.exchangeCodeForSession();
   } catch {}
   return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"));
 }
