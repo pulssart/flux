@@ -35,7 +35,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
       const today = new Date().toISOString().slice(0, 10);
       const raw = localStorage.getItem(key);
       let left = 30;
-      let date = today;
+      const date = today;
       if (raw) {
         const j = JSON.parse(raw) as { date?: string; left?: number };
         if (j && j.date === today && typeof j.left === "number") {
