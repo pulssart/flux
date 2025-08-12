@@ -12,7 +12,7 @@ import { DndContext, closestCenter } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pencil, Trash2, PanelLeft, PanelRight, Settings2, Plus, Loader2, FolderPlus, Folder, ChevronDown, ChevronRight } from "lucide-react";
+import { GripVertical, Pencil, Trash2, PanelLeft, PanelRight, Settings2, Plus, Loader2, FolderPlus, Folder, ChevronDown, ChevronRight, Megaphone, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "next-themes";
 import Image from "next/image";
@@ -143,6 +143,20 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const periodicSyncRef = useRef<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Modale d'update: version courante, à incrémenter pour réafficher
+  const UPDATE_VERSION = "2025-08-12-1" as const;
+  const [showUpdate, setShowUpdate] = useState(false);
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      const seen = localStorage.getItem("flux:update:seen");
+      setShowUpdate(seen !== UPDATE_VERSION);
+    } catch {
+      // en cas d'erreur stockage, ne pas bloquer l'UI
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   const currentTheme = mounted ? (theme ?? resolvedTheme) : "light";
   const logoSrc = currentTheme === "dark" ? "/icon-dark.png" : "/icon.png";
@@ -835,6 +849,72 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
           aria-label={t(lang, "resizeSidebar")}
         />
       )}
+
+      {/* Modale d'update (ancrée en bas dans la sidebar) */}
+      {showUpdate && !collapsed ? (
+        <div className="absolute left-2 right-2 bottom-2 z-50">
+          <div className="rounded-lg border bg-background shadow-lg">
+            <div className="flex items-center justify-between px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Megaphone className="text-muted-foreground" size={16} />
+                <span className="text-sm font-medium">
+                  {lang === "fr" ? "Nouveautés" : "What's new"}
+                </span>
+              </div>
+              <button
+                className="p-1 rounded hover:bg-foreground/5"
+                aria-label={lang === "fr" ? "Fermer" : "Close"}
+                onClick={() => {
+                  setShowUpdate(false);
+                  try { localStorage.setItem("flux:update:seen", UPDATE_VERSION); } catch {}
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-3 pb-3">
+              <ul className="list-disc pl-5 text-xs space-y-1">
+                {[
+                  {
+                    fr: "Dossiers et réorganisation des flux par glisser-déposer",
+                    en: "Folders and drag-and-drop reordering for feeds",
+                  },
+                  {
+                    fr: "Vue Aujourd'hui avec résumé rapide des nouveautés",
+                    en: "'Today' overview with quick updates",
+                  },
+                  {
+                    fr: "Connexion et synchronisation du compte (Supabase)",
+                    en: "Account login and sync (Supabase)",
+                  },
+                  {
+                    fr: "Export / import de votre configuration (JSON)",
+                    en: "Export / import your setup (JSON)",
+                  },
+                  {
+                    fr: "Lecture audio par IA (TTS) avec choix de la voix",
+                    en: "AI text-to-speech playback with selectable voice",
+                  },
+                ].map((u) => (
+                  <li key={u.fr}>{lang === "fr" ? u.fr : u.en}</li>
+                ))}
+              </ul>
+              <div className="pt-2 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowUpdate(false);
+                    try { localStorage.setItem("flux:update:seen", UPDATE_VERSION); } catch {}
+                  }}
+                >
+                  {lang === "fr" ? "Ok, compris" : "Got it"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent>
