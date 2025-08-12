@@ -309,6 +309,10 @@ export function Overview() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgOpen]);
 
+  // Hook de luminance pour la carte "featured" (doit être appelé à top-level pour respecter les Rules of Hooks)
+  const featuredImgForContrast = proxyImage(content?.items?.[0]?.image ?? null) || undefined;
+  const { luminance: featuredLuminance, overlayCss: featuredOverlayCss } = useImageLuminance(featuredImgForContrast);
+
   // Compléter côté client les images manquantes (evite le budget côté serveur)
   useEffect(() => {
     if (!content?.items || fillingImagesRef.current) return;
@@ -601,19 +605,41 @@ export function Overview() {
         {/* Featured */}
         {featured ? (
           <a href={featured.link || undefined} target="_blank" rel="noreferrer" className="block w-full">
-            <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[420px] group">
-              <div className="absolute inset-0 bg-muted" />
-              {proxyImage(featured.image) ? (
-                <img src={proxyImage(featured.image) as string} alt="" className="absolute inset-0 object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
-              ) : null}
-              <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
-                <div className="text-xs mb-2 text-white/80">
-                  {featured.pubDate ? format(new Date(featured.pubDate), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+            {(() => {
+              const imgUrl = proxyImage(featured.image) || undefined;
+              // Utiliser les valeurs calculées au top-level pour respecter les Rules of Hooks
+              const isBright = typeof featuredLuminance === "number" ? featuredLuminance > 0.6 : false;
+              const textClass = isBright ? "text-black" : "text-white";
+              const subTextClass = isBright ? "text-black/70" : "text-white/80";
+              return (
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[420px] group">
+                  <div className="absolute inset-0 bg-muted" />
+                  {imgUrl ? (
+                    <img src={imgUrl} alt="" className="absolute inset-0 object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                  ) : null}
+                  {/* Blur progressif pour lisibilité */}
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-[60%] backdrop-blur-2xl z-[1]"
+                    style={{
+                      WebkitMaskImage: "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 25%, rgba(0,0,0,0) 70%)",
+                      maskImage: "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 25%, rgba(0,0,0,0) 70%)",
+                    }}
+                    aria-hidden="true"
+                  />
+                  {/* Overlay adaptatif selon luminance */}
+                  <div className="absolute inset-0 z-[2]" style={{ background: featuredOverlayCss || "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }} aria-hidden="true" />
+                  <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
+                    <div className={`text-xs mb-2 ${subTextClass}`}>
+                      {featured.pubDate ? format(new Date(featured.pubDate), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h2 className={`text-2xl md:text-3xl font-semibold leading-tight mb-2 ${textClass}`}>{featured.title}</h2>
+                    {featured.summary ? (
+                      <p className={`text-sm md:text-base max-w-3xl line-clamp-3 drop-shadow ${subTextClass}`}>{featured.summary}</p>
+                    ) : null}
+                  </div>
                 </div>
-                <h2 className="text-2xl md:text-3xl font-semibold leading-tight mb-2 text-white drop-shadow">{featured.title}</h2>
-                {featured.summary ? (<p className="text-sm md:text-base max-w-3xl line-clamp-3 drop-shadow text-white/80">{featured.summary}</p>) : null}
-              </div>
-            </div>
+              );
+            })()}
           </a>
         ) : null}
 
@@ -783,6 +809,71 @@ function sanitizeOverviewHtml(html: string, lang: string, dateTitle: string): st
   } catch {
     return html;
   }
+}
+
+
+// Détection de luminance de l'image + overlay adaptatif (copie du hook utilisé dans FeedGrid)
+function useImageLuminance(imageUrl?: string | null) {
+  const [luminance, setLuminance] = useState<number | null>(null);
+  const [overlayCss, setOverlayCss] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imageUrl) {
+      setLuminance(null);
+      setOverlayCss("linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))");
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.referrerPolicy = "no-referrer";
+    img.onload = () => {
+      try {
+        const w = 24;
+        const h = 24;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("noctx");
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i] / 255;
+          const g = data[i + 1] / 255;
+          const b = data[i + 2] / 255;
+          const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          sum += L;
+        }
+        const avg = sum / (w * h);
+        if (!cancelled) {
+          setLuminance(avg);
+          const base = avg > 0.6 ? 0.35 : 0.6; // moins d'overlay si image claire
+          setOverlayCss(
+            `linear-gradient(to top, rgba(0,0,0,${base}) 0%, rgba(0,0,0,${Math.max(0, base - 0.25)}) 40%, rgba(0,0,0,0) 75%)`
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setLuminance(null);
+          setOverlayCss("linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))");
+        }
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) {
+        setLuminance(null);
+        setOverlayCss("linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))");
+      }
+    };
+    img.src = imageUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
+
+  return { luminance, overlayCss };
 }
 
 
