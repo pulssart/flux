@@ -644,6 +644,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 key={f.id}
                 id={f.id}
                 url={f.url}
+                title={f.title}
                 selected={selectedIds.includes(f.id)}
                 onToggle={() => toggleSelected(f.id)}
               />
@@ -1212,7 +1213,7 @@ function getFaviconUrl(u: string): string {
   }
 }
 
-function CollapsedItem({ id, url, selected, onToggle }: { id: string; url: string; selected: boolean; onToggle: () => void }) {
+function CollapsedItem({ id, url, title, selected, onToggle }: { id: string; url: string; title: string; selected: boolean; onToggle: () => void }) {
   return (
     <li
       className={cn(
@@ -1220,9 +1221,15 @@ function CollapsedItem({ id, url, selected, onToggle }: { id: string; url: strin
         selected ? "opacity-100 bg-secondary" : "opacity-50 hover:opacity-100 hover:bg-muted/50"
       )}
       onClick={onToggle}
-      title={url}
     >
-      <Favicon url={url} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Favicon url={url} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{title || url}</TooltipContent>
+      </Tooltip>
     </li>
   );
 }
