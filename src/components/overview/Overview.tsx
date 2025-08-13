@@ -50,6 +50,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [articlePlayingId, setArticlePlayingId] = useState<string | null>(null);
   const [articleGeneratingId, setArticleGeneratingId] = useState<string | null>(null);
   const [preparedArticleId, setPreparedArticleId] = useState<string | null>(null);
+  const [aiKeyOpen, setAiKeyOpen] = useState(false);
+  const [aiKeyInput, setAiKeyInput] = useState("");
   useEffect(() => {
     (async () => {
       try {
@@ -131,6 +133,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => null);
+        if (res.status === 401) {
+          try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
+          setAiKeyOpen(true);
+        }
         toast.error((j?.error as string) || (lang === "fr" ? "Échec de génération audio" : "Audio generation failed"));
         return;
       }
@@ -200,6 +206,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       });
       const j = await res.json().catch(() => null);
       if (!res.ok || !j?.audio) {
+        if (res.status === 401) {
+          try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
+          setAiKeyOpen(true);
+        }
         toast.error((j?.error as string) || (lang === "fr" ? "Échec de génération audio" : "Audio generation failed"));
         return;
       }
@@ -704,6 +714,16 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           )}
           {isMobile ? (
             <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                onClick={() => {
+                  try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
+                  setAiKeyOpen(true);
+                }}
+              >
+                {lang === "fr" ? "Clé IA" : "AI Key"}
+              </button>
               {!sessionEmail ? (
                 <button
                   type="button"
@@ -1300,7 +1320,48 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           }
         `}</style>
       ) : null}
+      {/* Dialog clé OpenAI (mobile) */}
+      <AiKeyDialog
+        open={aiKeyOpen}
+        onOpenChange={(o) => setAiKeyOpen(o)}
+        value={aiKeyInput}
+        onChange={(v) => setAiKeyInput(v)}
+        onSave={() => {
+          try { localStorage.setItem("flux:ai:openai", (aiKeyInput || "").trim()); } catch {}
+          setAiKeyOpen(false);
+          toast.success(lang === "fr" ? "Clé OpenAI enregistrée" : "OpenAI key saved");
+        }}
+        lang={lang}
+      />
     </article>
+  );
+}
+
+// Petit dialogue pour saisir/mettre à jour la clé OpenAI côté mobile
+function AiKeyDialog({ open, onOpenChange, value, onChange, onSave, lang }: { open: boolean; onOpenChange: (o: boolean) => void; value: string; onChange: (v: string) => void; onSave: () => void; lang: string }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{lang === "fr" ? "Clé OpenAI" : "OpenAI Key"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Input
+            type="password"
+            placeholder="sk-..."
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <div className="text-xs text-muted-foreground">
+            {lang === "fr" ? "La clé reste stockée localement sur votre appareil et n'est jamais envoyée au serveur." : "The key is stored locally on your device and never sent to the server."}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{lang === "fr" ? "Annuler" : "Cancel"}</Button>
+            <Button onClick={onSave}>{lang === "fr" ? "Enregistrer" : "Save"}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
