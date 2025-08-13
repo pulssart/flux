@@ -781,7 +781,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M10 4a1 1 0 1 0 0 2h6a2 2 0 0 1 2 2v6a1 1 0 1 0 2 0V8a4 4 0 0 0-4-4h-6z"/><path d="M8 8a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h7a1 1 0 1 0 0-2H9a1 1 0 0 1-1-1V9a1 1 0 0 0-1-1z"/><path d="M8.586 15.414a2 2 0 0 1 0-2.828l3.172-3.172a2 2 0 1 1 2.828 2.828l-.879.879a1 1 0 1 1-1.414-1.414l.879-.879a0 0 0 1 0 0 0l-3.172 3.172a0 0 0 1 0 0 0 0 0l-.586.586a0 0 0 1 0 0 0 0 0z"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
                       </button>
                     ) : null}
                   </div>
@@ -829,7 +829,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M10 4a1 1 0 1 0 0 2h6a2 2 0 0 1 2 2v6a1 1 0 1 0 2 0V8a4 4 0 0 0-4-4h-6z"/><path d="M8 8a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h7a1 1 0 1 0 0-2H9a1 1 0 0 1-1-1V9a1 1 0 0 0-1-1z"/><path d="M8.586 15.414a2 2 0 0 1 0-2.828l3.172-3.172a2 2 0 1 1 2.828 2.828l-.879.879a1 1 0 1 1-1.414-1.414l.879-.879a0 0 0 1 0 0 0l-3.172 3.172a0 0 0 1 0 0 0 0 0l-.586.586a0 0 0 1 0 0 0 0 0z"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
                       </button>
                     ) : null}
                   </div>
@@ -877,7 +877,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M10 4a1 1 0 1 0 0 2h6a2 2 0 0 1 2 2v6a1 1 0 1 0 2 0V8a4 4 0 0 0-4-4h-6z"/><path d="M8 8a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h7a1 1 0 1 0 0-2H9a1 1 0 0 1-1-1V9a1 1 0 0 0-1-1z"/><path d="M8.586 15.414a2 2 0 0 1 0-2.828l3.172-3.172a2 2 0 1 1 2.828 2.828l-.879.879a1 1 0 1 1-1.414-1.414l.879-.879a0 0 0 1 0 0 0l-3.172 3.172a0 0 0 1 0 0 0 0 0l-.586.586a0 0 0 1 0 0 0 0 0z"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
                       </button>
                     ) : null}
                   </div>
