@@ -52,6 +52,25 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     })();
   }, []);
 
+  async function copyLinkToClipboard(url?: string | null) {
+    if (!url) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      toast.success(t(lang, "linkCopied"));
+    } catch {
+      toast.error(t(lang, "clipboardError"));
+    }
+  }
+
   function proxyImage(url?: string | null): string | null {
     if (!url) return null;
     try {
@@ -750,10 +769,20 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {firstRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
-                <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col group">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
                     {proxyImage(it.image) ? (
                       <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                    {it.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={t(lang, "copyLink")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M10 4a1 1 0 1 0 0 2h6a2 2 0 0 1 2 2v6a1 1 0 1 0 2 0V8a4 4 0 0 0-4-4h-6z"/><path d="M8 8a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h7a1 1 0 1 0 0-2H9a1 1 0 0 1-1-1V9a1 1 0 0 0-1-1z"/><path d="M8.586 15.414a2 2 0 0 1 0-2.828l3.172-3.172a2 2 0 1 1 2.828 2.828l-.879.879a1 1 0 1 1-1.414-1.414l.879-.879a0 0 0 1 0 0 0l-3.172 3.172a0 0 0 1 0 0 0 0 0l-.586.586a0 0 0 1 0 0 0 0 0z"/></svg>
+                      </button>
                     ) : null}
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
@@ -788,10 +817,20 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {secondRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
-                <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col group">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
                     {proxyImage(it.image) ? (
                       <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                    {it.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={t(lang, "copyLink")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M10 4a1 1 0 1 0 0 2h6a2 2 0 0 1 2 2v6a1 1 0 1 0 2 0V8a4 4 0 0 0-4-4h-6z"/><path d="M8 8a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h7a1 1 0 1 0 0-2H9a1 1 0 0 1-1-1V9a1 1 0 0 0-1-1z"/><path d="M8.586 15.414a2 2 0 0 1 0-2.828l3.172-3.172a2 2 0 1 1 2.828 2.828l-.879.879a1 1 0 1 1-1.414-1.414l.879-.879a0 0 0 1 0 0 0l-3.172 3.172a0 0 0 1 0 0 0 0 0l-.586.586a0 0 0 1 0 0 0 0 0z"/></svg>
+                      </button>
                     ) : null}
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
@@ -826,10 +865,20 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {remaining.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
-                <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col group">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
                     {proxyImage(it.image) ? (
                       <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                    {it.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={t(lang, "copyLink")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M10 4a1 1 0 1 0 0 2h6a2 2 0 0 1 2 2v6a1 1 0 1 0 2 0V8a4 4 0 0 0-4-4h-6z"/><path d="M8 8a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h7a1 1 0 1 0 0-2H9a1 1 0 0 1-1-1V9a1 1 0 0 0-1-1z"/><path d="M8.586 15.414a2 2 0 0 1 0-2.828l3.172-3.172a2 2 0 1 1 2.828 2.828l-.879.879a1 1 0 1 1-1.414-1.414l.879-.879a0 0 0 1 0 0 0l-3.172 3.172a0 0 0 1 0 0 0 0 0l-.586.586a0 0 0 1 0 0 0 0 0z"/></svg>
+                      </button>
                     ) : null}
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
