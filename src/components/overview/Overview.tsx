@@ -84,7 +84,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       const savedKey = localStorage.getItem("flux:unsplash:key");
       if (savedKey) setUnsplashKey(savedKey);
     } catch {}
-  }, [lang, dateTitle, generate]);
+  }, [lang, dateTitle]);
 
   async function requestOverview(fast: boolean, timeoutMs: number) {
     const startedAt = Date.now();
@@ -191,7 +191,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       generatingRef.current = false;
       setGenerating(false);
     }
-  }, [lang, dateTitle]);
+  }, [lang, dateTitle, requestOverview]);
   // Plus de fallback source.unsplash (503). On n'utilise que l'API Unsplash via /api/unsplash/search
 
   async function searchUnsplash(nextPage?: number) {
