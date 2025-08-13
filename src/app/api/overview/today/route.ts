@@ -25,7 +25,15 @@ export async function POST(req: NextRequest) {
     // Parser rapide sans enrichissement OG (plus performant)
     // Mode rapide pour éviter les timeouts sur l'hébergement (fonction serverless ~10s)
     const parser = new Parser({ timeout: fast ? 1500 : 2000 });
-    const maxFeeds = Math.min(fast ? 6 : 8, feeds.length);
+    const isYouTubeHost = (u?: string) => {
+      if (!u) return false;
+      try {
+        const host = new URL(u).hostname.replace(/^www\./, "");
+        return host.includes("youtube.") || host.includes("ytimg.") || u.includes("/feeds/videos.xml");
+      } catch { return false; }
+    };
+    const feedsOrdered = [...feeds].sort((a, b) => (isYouTubeHost(b) ? 1 : 0) - (isYouTubeHost(a) ? 1 : 0));
+    const maxFeeds = Math.min(fast ? 10 : 14, feedsOrdered.length);
     const chunkSize = fast ? 2 : 2;
     const timeBudgetMs = fast ? 4000 : 6000;
     const startedAt = Date.now();
@@ -58,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < maxFeeds; i += chunkSize) {
       if (Date.now() - startedAt > timeBudgetMs) break;
-      const slice = feeds.slice(i, i + chunkSize);
+      const slice = feedsOrdered.slice(i, i + chunkSize);
       const results = await Promise.allSettled(slice.map((u) => parser.parseURL(u)));
       for (const res of results) {
         if (res.status !== "fulfilled") continue;
@@ -105,7 +113,21 @@ export async function POST(req: NextRequest) {
     };
     const yt = todaysSorted.filter((x) => isYouTube(x.link));
     const nonYt = todaysSorted.filter((x) => !isYouTube(x.link));
-    const mergedPrioritized = [...yt.slice(0, 2), ...nonYt];
+    let mergedPrioritized = [...yt.slice(0, 2), ...nonYt];
+    // Fallback: si aucune vidéo YouTube dans les dernières 24h, autoriser jusqu'à 2 vidéos sur 72h
+    if (!yt.length) {
+      const threshold72h = nowMs - 72 * 60 * 60 * 1000;
+      const yt72 = items
+        .filter((x) => isYouTube(x.link) && x.pubDate && +new Date(x.pubDate) >= threshold72h)
+        .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)))
+        .slice(0, 2);
+      if (yt72.length) {
+        // Préfixer celles qui ne sont pas déjà incluses
+        const seen = new Set(mergedPrioritized.map((x) => x.link));
+        const add = yt72.filter((x) => (x.link ? !seen.has(x.link) : true));
+        mergedPrioritized = [...add, ...mergedPrioritized];
+      }
+    }
     const limited = mergedPrioritized.slice(0, MAX_ITEMS);
 
     // Compléter les images manquantes via OG (quota limité)
