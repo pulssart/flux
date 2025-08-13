@@ -566,12 +566,14 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         const nextFolders = folders.map((f) => (f.id === updatedSrc.id ? updatedSrc : f.id === updatedTarget.id ? updatedTarget : f));
         setFolders(nextFolders);
         saveFolders(nextFolders);
+        scheduleSyncToServer(feeds, nextFolders);
       } else {
         const target = folders.find((f) => f.id === b.id)!;
         const updatedTarget = { ...target, feedIds: [...target.feedIds, a.id] };
         const nextFolders = folders.map((f) => (f.id === updatedTarget.id ? updatedTarget : f));
         setFolders(nextFolders);
         saveFolders(nextFolders);
+        scheduleSyncToServer(feeds, nextFolders);
       }
       return;
     }
