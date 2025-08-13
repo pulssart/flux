@@ -588,8 +588,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         if (e) youtubeEmbeds.push(e);
       }
     }
-    const firstAfter = rest[0];
-    const remaining = rest.slice(1);
+    const firstRow = rest.slice(0, 3);
+    const secondRow = rest.slice(3, 6);
+    const remaining = rest.slice(6);
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
@@ -744,44 +745,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </a>
         ) : null}
 
-        {/* Une ligne d'article après le featured */}
-        {firstAfter ? (
-          <a href={firstAfter.link || undefined} target="_blank" rel="noreferrer" className="block w-full mt-6">
-            <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl flex flex-col md:flex-row">
-              <div className="relative w-full md:w-1/2 h-48 md:h-40 bg-muted overflow-hidden">
-                {proxyImage(firstAfter.image) ? (
-                  <img src={proxyImage(firstAfter.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
-                ) : null}
-              </div>
-              <div className="p-3 md:p-4 space-y-1 flex-1 min-w-0">
-                <div className="text-xs text-muted-foreground">
-                  {firstAfter.pubDate ? format(new Date(firstAfter.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
-                </div>
-                <h3 className="font-medium leading-tight line-clamp-2">{firstAfter.title}</h3>
-                {firstAfter.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{firstAfter.summary}</p>) : null}
-              </div>
-            </div>
-          </a>
-        ) : null}
-
-        {/* Première vidéo intercalée */}
-        {youtubeEmbeds[0] ? (
-          <div className="mt-6">
-            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
-              <iframe
-                src={youtubeEmbeds[0]}
-                className="absolute inset-0 w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        ) : null}
-
-        {/* Grid */}
-        {remaining.length ? (
+        {/* 1ère ligne de 3 articles */}
+        {firstRow.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-            {remaining.map((it, idx) => (
+            {firstRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
                 <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
@@ -802,7 +769,45 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </div>
         ) : null}
 
-        {/* Deuxième vidéo intercalée (après d'autres articles) */}
+        {/* 1ère vidéo intercalée */}
+        {youtubeEmbeds[0] ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <iframe
+                src={youtubeEmbeds[0]}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {/* 2ème ligne de 3 articles */}
+        {secondRow.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {secondRow.map((it, idx) => (
+              <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(it.image) ? (
+                      <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">
+                      {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
+                    {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        {/* 2ème vidéo intercalée */}
         {youtubeEmbeds[1] ? (
           <div className="mt-6">
             <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
@@ -813,6 +818,30 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                 allowFullScreen
               />
             </div>
+          </div>
+        ) : null}
+
+        {/* Le reste des articles */}
+        {remaining.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {remaining.map((it, idx) => (
+              <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(it.image) ? (
+                      <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">
+                      {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
+                    {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
+                  </div>
+                </div>
+              </a>
+            ))}
           </div>
         ) : null}
       </div>
