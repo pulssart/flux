@@ -89,14 +89,24 @@ export async function POST(req: NextRequest) {
       const t = +new Date(it.pubDate);
       return Number.isFinite(t) && t >= thresholdMs;
     });
-    // Trier par date desc et limiter à 12
+    // Trier par date desc et limiter à 12, en privilégiant jusqu'à 2 vidéos YouTube si présentes
     const MAX_ITEMS = 12;
     const todaysSorted = [...todays].sort((a, b) => {
       const ta = a.pubDate ? +new Date(a.pubDate) : 0;
       const tb = b.pubDate ? +new Date(b.pubDate) : 0;
       return tb - ta;
     });
-    const limited = todaysSorted.slice(0, MAX_ITEMS);
+    const isYouTube = (u?: string) => {
+      if (!u) return false;
+      try {
+        const host = new URL(u).hostname.replace(/^www\./, "");
+        return host === "youtube.com" || host === "youtu.be" || host === "m.youtube.com" || host.endsWith("youtube-nocookie.com");
+      } catch { return false; }
+    };
+    const yt = todaysSorted.filter((x) => isYouTube(x.link));
+    const nonYt = todaysSorted.filter((x) => !isYouTube(x.link));
+    const mergedPrioritized = [...yt.slice(0, 2), ...nonYt];
+    const limited = mergedPrioritized.slice(0, MAX_ITEMS);
 
     // Compléter les images manquantes via OG (quota limité)
     let toComplete = limited.filter((x) => !x.image && x.link);
