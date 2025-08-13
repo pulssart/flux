@@ -970,24 +970,26 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         </ScrollArea>
       )}
       {/* Bloc AI tokens (fixe en bas, au-dessus de la liste) */}
-      <div className="absolute left-2 right-2 bottom-2 z-40">
-        <div className="rounded-lg border bg-background/90 backdrop-blur px-3 py-2 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-medium">{t(lang, "aiTokens")}</div>
-            <div className="text-[11px] text-muted-foreground">{tokensLeft}/{DAILY_TOKENS} {t(lang, "tokensRemaining")}</div>
-          </div>
-          <div className="mt-1 h-2 w-full rounded bg-muted overflow-hidden">
-            {(() => {
-              const ratio = Math.max(0, Math.min(1, tokensLeft / DAILY_TOKENS));
-              const color = ratio <= (5 / DAILY_TOKENS) ? "bg-red-500" : (ratio <= 0.5 ? "bg-yellow-500" : "bg-green-500");
-              return <div className={`h-2 ${color}`} style={{ width: `${Math.round(ratio * 100)}%` }} />;
-            })()}
-          </div>
-          <div className="mt-2 flex justify-end">
-            <Button size="sm" variant="outline">{t(lang, "upgrade")}</Button>
+      {!collapsed && (
+        <div className="absolute left-2 right-2 bottom-2 z-40">
+          <div className="rounded-lg border bg-background/90 backdrop-blur px-3 py-2 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-medium">{t(lang, "aiTokens")}</div>
+              <div className="text-[11px] text-muted-foreground">{tokensLeft}/{DAILY_TOKENS} {t(lang, "tokensRemaining")}</div>
+            </div>
+            <div className="mt-1 h-2 w-full rounded bg-muted overflow-hidden">
+              {(() => {
+                const ratio = Math.max(0, Math.min(1, tokensLeft / DAILY_TOKENS));
+                const color = ratio <= (5 / DAILY_TOKENS) ? "bg-red-500" : (ratio <= 0.5 ? "bg-yellow-500" : "bg-green-500");
+                return <div className={`h-2 ${color}`} style={{ width: `${Math.round(ratio * 100)}%` }} />;
+              })()}
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Button size="sm" variant="outline">{t(lang, "upgrade")}</Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       {/* poignée de redimensionnement (uniquement en mode étendu) */}
       {!collapsed && (
             <div

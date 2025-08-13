@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-export function Overview() {
+export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [lang] = useLang();
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<
@@ -371,8 +371,8 @@ export function Overview() {
     return (
       <div className="min-h-[60vh]">
         <div className="max-w-3xl mx-auto">
-          <div className={`flex items-center justify-between gap-4`}>
-          <div>
+          <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4`}>
+          <div className="min-w-0">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
               <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
               <span className="first-letter:uppercase">{dateRest}</span>
@@ -381,6 +381,7 @@ export function Overview() {
               <p className="mt-1 text-xs text-muted-foreground">{updatedLabel}</p>
             ) : null}
           </div>
+          {!isMobile && (
           <div className="flex items-center gap-2">
             <Dialog open={bgOpen} onOpenChange={setBgOpen}>
               <DialogTrigger asChild>
@@ -466,6 +467,7 @@ export function Overview() {
               )}
             </Button>
           </div>
+          )}
           </div>
         </div>
         {generating ? (
@@ -511,8 +513,8 @@ export function Overview() {
     const rest = items.slice(1);
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
-        <div className="flex items-center justify-between gap-4 not-prose mb-4">
-          <div>
+        <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
+          <div className="min-w-0">
             <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
               <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
               <span className="first-letter:uppercase">{dateRest}</span>
@@ -523,6 +525,7 @@ export function Overview() {
               </p>
             ) : null}
           </div>
+          {!isMobile && (
           <div className="flex items-center gap-2">
             <Dialog open={bgOpen} onOpenChange={setBgOpen}>
               <DialogTrigger asChild>
@@ -582,6 +585,7 @@ export function Overview() {
               {generating ? (<span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {t(lang, "generatingResume")}</span>) : (t(lang, "updateResume"))}
             </Button>
           </div>
+          )}
         </div>
 
         {/* Fond fixe pour la section overview comme avant */}
@@ -608,7 +612,8 @@ export function Overview() {
             {(() => {
               const imgUrl = proxyImage(featured.image) || undefined;
               // Utiliser les valeurs calculées au top-level pour respecter les Rules of Hooks
-              const isBright = typeof featuredLuminance === "number" ? featuredLuminance > 0.6 : false;
+              const lum = typeof featuredLuminance === "number" ? featuredLuminance : 0;
+              const isBright = lum > 0.6;
               const textClass = isBright ? "text-black" : "text-white";
               const subTextClass = isBright ? "text-black/70" : "text-white/80";
               return (
@@ -630,7 +635,7 @@ export function Overview() {
                   <div className="absolute inset-0 z-[2]" style={{ background: featuredOverlayCss || "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }} aria-hidden="true" />
                   <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
                     <div className={`text-xs mb-2 ${subTextClass}`}>
-                      {featured.pubDate ? format(new Date(featured.pubDate), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                      {featured.pubDate ? format(new Date(featured.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
                     <h2 className={`text-2xl md:text-3xl font-semibold leading-tight mb-2 ${textClass}`}>{featured.title}</h2>
                     {featured.summary ? (
@@ -656,7 +661,7 @@ export function Overview() {
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
                     <div className="text-xs text-muted-foreground">
-                      {it.pubDate ? format(new Date(it.pubDate), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
                     <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
@@ -672,8 +677,8 @@ export function Overview() {
 
   return (
     <article className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-3xl mx-auto px-3 sm:px-0 leading-relaxed">
-      <div className="flex items-center justify-between gap-4 not-prose mb-2">
-        <div>
+      <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-2`}>
+        <div className="min-w-0">
           <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
             <span className="text-red-500 first-letter:uppercase">{weekday}</span>{" "}
             <span className="first-letter:uppercase">{dateRest}</span>
@@ -684,6 +689,7 @@ export function Overview() {
             </p>
           ) : null}
         </div>
+        {!isMobile && (
         <div className="flex items-center gap-2">
           <Dialog open={bgOpen} onOpenChange={setBgOpen}>
             <DialogTrigger asChild>
@@ -762,6 +768,7 @@ export function Overview() {
             )}
           </Button>
         </div>
+        )}
       </div>
       <div className="[&_img]:w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:object-cover [&_table]:w-full [&_table]:block [&_table]:overflow-x-auto" dangerouslySetInnerHTML={{ __html: content.html }} />
       {/* Fond fixe appliqué derrière la zone p-6 (overview) en couvrant la fenêtre */}
