@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Image as ImageIcon, RefreshCcw, Trash2 } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
@@ -84,7 +84,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       const savedKey = localStorage.getItem("flux:unsplash:key");
       if (savedKey) setUnsplashKey(savedKey);
     } catch {}
-  }, [lang, dateTitle]);
+  }, [lang, dateTitle, generate]);
 
   async function requestOverview(fast: boolean, timeoutMs: number) {
     const startedAt = Date.now();
@@ -120,7 +120,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     };
   }
 
-  async function generate() {
+  const generate = useCallback(async () => {
     if (generatingRef.current) return;
     generatingRef.current = true;
     setGenerating(true);
@@ -191,7 +191,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       generatingRef.current = false;
       setGenerating(false);
     }
-  }
+  }, [lang, dateTitle]);
   // Plus de fallback source.unsplash (503). On n'utilise que l'API Unsplash via /api/unsplash/search
 
   async function searchUnsplash(nextPage?: number) {

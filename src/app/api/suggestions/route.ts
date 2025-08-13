@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 type SuggestedFeed = { title: string; url: string; domain?: string };
 
 const SOURCE = "https://raw.githubusercontent.com/plenaryapp/awesome-rss-feeds/master/README.md";
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     const res = await fetch(SOURCE, { headers: { "user-agent": "FluxRSS/1.0" }, cache: "no-store" });
     if (!res.ok) throw new Error("fetch failed");

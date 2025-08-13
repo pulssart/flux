@@ -19,7 +19,7 @@ export function Onboarding() {
   }, []);
 
   useEffect(() => {
-    const on = (_e: Event) => {
+    const on = () => {
       setStep(0);
       setOpen(true);
     };

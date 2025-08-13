@@ -19,7 +19,7 @@ type Body = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, lang = "fr", apiKey, voice } = (await req.json()) as Body;
+    const { text, apiKey, voice } = (await req.json()) as Body;
     if (!text || typeof text !== "string" || text.trim().length === 0) {
       return NextResponse.json({ error: "missing text" }, { status: 400 });
     }

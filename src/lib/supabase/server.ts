@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export async function getSupabaseServerClient(): Promise<SupabaseClient> {
@@ -15,10 +15,10 @@ export async function getSupabaseServerClient(): Promise<SupabaseClient> {
       get(name: string) {
         return cookieStore.get(name)?.value;
       },
-      set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
+      set(name: string, value: string) {
+        cookieStore.set({ name, value });
       },
-      remove(name: string, options: CookieOptions) {
+      remove(name: string) {
         // Supprime le cookie; options ignorées côté Next
         cookieStore.delete(name);
       },

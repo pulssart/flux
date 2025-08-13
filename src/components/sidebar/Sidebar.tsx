@@ -8,17 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  DndContext,
-  closestCorners,
-  DragOverlay,
-  useDroppable,
-  useSensor,
-  useSensors,
-  MouseSensor,
-  TouchSensor,
-  KeyboardSensor,
-} from "@dnd-kit/core";
+import { DndContext, closestCorners, DragOverlay, useSensor, useSensors, MouseSensor, TouchSensor, KeyboardSensor } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
@@ -174,7 +164,6 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     } catch {
       // en cas d'erreur stockage, ne pas bloquer l'UI
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
   const currentTheme = mounted ? (theme ?? resolvedTheme) : "light";
@@ -262,7 +251,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
 
   // Exposition d'une API globale simple pour décrémenter un token (appelée par les features IA)
   useEffect(() => {
-    const on = (_e: Event) => {
+    const on = () => {
       setTokensLeft((prev) => {
         const next = Math.max(0, prev - 1);
         try {

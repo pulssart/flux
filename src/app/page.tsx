@@ -17,7 +17,7 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
+      const ua = navigator.userAgent || navigator.vendor || "";
       const m = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
       setIsMobile(m);
     } catch {

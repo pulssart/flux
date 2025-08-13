@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       }
 
       const normalized = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim();
-      const cleaned = sanitizeContent(normalized, lang);
+      const cleaned = sanitizeContent(normalized);
       const limited = cleaned.slice(0, 20000);
 
       let summary: string;
@@ -384,7 +384,7 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
   return text.trim();
 }
 
-function sanitizeContent(input: string, lang: string): string {
+function sanitizeContent(input: string): string {
   try {
     const lower = (s: string) => s.toLowerCase();
     const adKeywords = [
@@ -490,7 +490,7 @@ async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, cl
     }),
     signal: controller.signal,
   });
-  } catch (e) {
+  } catch {
     clearTimeout(timer);
     throw new ApiError(504, "TTS timeout");
   } finally {

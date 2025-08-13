@@ -89,7 +89,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
         const text = (json?.text as string) || "";
         setSummary(text);
         clearInterval(interval);
-      } catch (e) {
+      } catch {
         setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");
       } finally {
         setLoading(false);
@@ -142,7 +142,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                 <button
                   type="button"
                   className="text-[12px] underline opacity-80 hover:opacity-100"
-                  onClick={async (e) => {
+          onClick={async (e) => {
                     e.preventDefault();
                     try {
                       if (!summary) return;
@@ -157,7 +157,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                         document.body.removeChild(ta);
                       }
                       toast.success(lang === "fr" ? "Résumé copié" : "Summary copied");
-                    } catch {}
+              } catch {}
                   }}
                 >
                   {lang === "fr" ? "Copier le résumé" : "Copy summary"}
@@ -166,7 +166,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                 <button
                   type="button"
                   className="text-[12px] underline opacity-80 hover:opacity-100"
-                  onClick={(e) => {
+              onClick={(e) => {
                     e.preventDefault();
                     setXOpen(true);
                     setXText("");
@@ -184,7 +184,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               </div>
             ) : (
               <div className="mx-auto w-full max-w-[900px] px-1 sm:px-2">
-                <StructuredSummary lang={lang} summary={summary} imageUrl={imageUrl} />
+                <StructuredSummary summary={summary} imageUrl={imageUrl} />
               </div>
             )}
           </div>
@@ -344,7 +344,7 @@ function LoadingMessages({ lang, step }: { lang: "fr" | "en"; step: number }) {
   return <span>{arr[step % arr.length]}</span>;
 }
 
-function StructuredSummary({ lang, summary, imageUrl }: { lang: "fr" | "en"; summary: string; imageUrl?: string }) {
+function StructuredSummary({ summary, imageUrl }: { summary: string; imageUrl?: string }) {
   if (!summary) return null;
   // Découpe en sections sur mots-clés connus
   const lines = summary.split(/\n+/).map((l) => l.trim()).filter(Boolean);

@@ -201,6 +201,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function playDigestForToday() {
     // Récupère uniquement les articles d'aujourd'hui (toutes colonnes)
     const start = new Date();
@@ -378,7 +379,6 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
                 isGenerating={generatingId === a.id}
                 isPlaying={playingId === a.id}
             onPlay={() => void playArticle(a)}
-            onOpenVideo={() => openVideoOverlay(a.link)}
                 onStop={() => stopPlayback()}
               />
             ))}
@@ -432,24 +432,8 @@ function SkeletonGrid() {
   );
 }
 
-function ArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, onStop }: { article: Article; isGenerating: boolean; isPlaying: boolean; onPlay: () => void; onOpenVideo: () => void; onStop: () => void }) {
-  // util locales (fallback si non captées depuis le parent)
-  const localIsYouTubeUrl = (url?: string) => {
-    try {
-      if (!url) return false;
-      const u = new URL(url);
-      const h = u.hostname.replace(/^www\./, "");
-      return h === "youtube.com" || h === "youtu.be" || h === "m.youtube.com" || h.endsWith("youtube-nocookie.com");
-    } catch { return false; }
-  };
-  const localIsProductHuntUrl = (url?: string) => {
-    try {
-      if (!url) return false;
-      const u = new URL(url);
-      const h = u.hostname.replace(/^www\./, "");
-      return h === "producthunt.com" || h.endsWith(".producthunt.com");
-    } catch { return false; }
-  };
+function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { article: Article; isGenerating: boolean; isPlaying: boolean; onPlay: () => void; onStop: () => void }) {
+  // util locales retirées (non utilisées dans cette carte)
   const [lang] = useLang();
   const [copied, setCopied] = useState(false);
   async function copyLink(e: React.MouseEvent) {

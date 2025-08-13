@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import Script from "next/script";
 import { ThemeProviderClient } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -35,28 +36,24 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Google Tag Manager */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(
-function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        <Script id="gtm" strategy="afterInteractive">
+          {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-P8QQKDJ2');`,
-          }}
-        />
+})(window,document,'script','dataLayer','GTM-P8QQKDJ2');`}
+        </Script>
         {/* End Google Tag Manager */}
         {/* Google tag (gtag.js) */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-B1SFE5MFGE" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
+        <Script id="gtag-src" src="https://www.googletagmanager.com/gtag/js?id=G-B1SFE5MFGE" strategy="afterInteractive" />
+        <Script id="gtag-inline" strategy="afterInteractive">
+          {`
   window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
+  function gtag(){dataLayer.push(arguments);} 
   gtag('js', new Date());
   gtag('config', 'G-B1SFE5MFGE');
-`}}
-        />
+`}
+        </Script>
         {/* End Google tag */}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>

@@ -20,7 +20,7 @@ export async function GET() {
     },
     { status: 200 }
   );
-  } catch (e) {
+  } catch {
     return NextResponse.json({ user: null }, { status: 200 });
   }
 }
