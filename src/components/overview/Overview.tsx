@@ -62,6 +62,43 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     }
   }
 
+  function isYouTubeUrl(url?: string | null): boolean {
+    if (!url) return false;
+    try {
+      const u = new URL(url);
+      const h = u.hostname.replace(/^www\./, "");
+      return h === "youtube.com" || h === "youtu.be" || h === "m.youtube.com" || h.endsWith("youtube-nocookie.com");
+    } catch {
+      return false;
+    }
+  }
+
+  function getYouTubeEmbed(url?: string | null): string | null {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./, "");
+      let id = "";
+      if (host === "youtu.be") {
+        id = u.pathname.slice(1);
+      } else {
+        id = u.searchParams.get("v") || "";
+        if (!id && u.pathname.startsWith("/embed/")) id = u.pathname.split("/embed/")[1] || "";
+      }
+      if (!id) return null;
+      const params = new URLSearchParams();
+      const start = u.searchParams.get("t") || u.searchParams.get("start");
+      if (start) params.set("start", start);
+      params.set("autoplay", "0");
+      params.set("playsinline", "1");
+      params.set("rel", "0");
+      params.set("modestbranding", "1");
+      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?${params.toString()}`;
+    } catch {
+      return null;
+    }
+  }
+
   const today = new Date();
   const weekday = format(today, "EEEE", { locale: lang === "fr" ? frLocale : enUS });
   const dateRest = format(today, "d MMMM yyyy", { locale: lang === "fr" ? frLocale : enUS });
@@ -540,6 +577,15 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const items = content.items;
     const featured = items[0];
     const rest = items.slice(1);
+    // Extraire jusqu'à 2 vidéos YouTube depuis la liste complète (en priorité dans rest)
+    const youtubeEmbeds: string[] = [];
+    for (const it of items) {
+      if (youtubeEmbeds.length >= 2) break;
+      if (isYouTubeUrl(it.link)) {
+        const e = getYouTubeEmbed(it.link);
+        if (e) youtubeEmbeds.push(e);
+      }
+    }
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
@@ -692,6 +738,22 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
               );
             })()}
           </a>
+        ) : null}
+
+        {/* YouTube embeds (optionnels) */}
+        {youtubeEmbeds.length ? (
+          <div className="mt-6 space-y-6">
+            {youtubeEmbeds.map((src, i) => (
+              <div key={i} className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+                <iframe
+                  src={src}
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            ))}
+          </div>
         ) : null}
 
         {/* Grid */}
