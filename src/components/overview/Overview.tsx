@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn } from "lucide-react";
+import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Play, Square } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr as frLocale, enUS } from "date-fns/locale";
@@ -40,6 +40,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [unsplashHasMore, setUnsplashHasMore] = useState<boolean>(false);
   const fillingImagesRef = useRef(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+  const [digestPlaying, setDigestPlaying] = useState(false);
+  const [digestGenerating, setDigestGenerating] = useState(false);
   useEffect(() => {
     (async () => {
       try {
@@ -69,6 +72,50 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     } catch {
       toast.error(t(lang, "clipboardError"));
     }
+  }
+
+  async function playTodayDigest() {
+    try {
+      // Consommer 1 token
+      try { window.dispatchEvent(new Event("flux:ai:token:consume")); } catch {}
+      const items = (content?.items || []).slice(0, 30).map((it) => ({ title: it.title, snippet: it.summary }));
+      if (!items.length) {
+        toast.error(lang === "fr" ? "Aucun article pour aujourd'hui" : "No items for today");
+        return;
+      }
+      setDigestGenerating(true);
+      let apiKey = "";
+      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+      const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
+      const sourceTitle = `${dateTitle}`;
+      const res = await fetch("/api/ai/summarize-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, sourceTitle, lang, apiKey: apiKey || undefined, voice }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        toast.error((j?.error as string) || (lang === "fr" ? "Échec de génération audio" : "Audio generation failed"));
+        return;
+      }
+      const j = (await res.json()) as { audio: string };
+      if (audioEl) { try { audioEl.pause(); } catch {} }
+      const audio = new Audio(`data:audio/mp3;base64,${j.audio}`);
+      setAudioEl(audio);
+      setDigestPlaying(true);
+      audio.onended = () => setDigestPlaying(false);
+      await audio.play();
+      toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDigestGenerating(false);
+    }
+  }
+
+  function stopDigest() {
+    try { if (audioEl) audioEl.pause(); } catch {}
+    setDigestPlaying(false);
   }
 
   function proxyImage(url?: string | null): string | null {
@@ -552,7 +599,28 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                 <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
               </button>
             </div>
-          ) : null}
+          ) : (isMobile ? (
+            <div className="ml-auto flex items-center gap-2">
+              {!digestPlaying && !digestGenerating ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                  onClick={(e) => { e.preventDefault(); void playTodayDigest(); }}
+                >
+                  <Play className="w-3.5 h-3.5" /> {lang === "fr" ? "Lire avec IA" : "AI Read"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                  onClick={(e) => { e.preventDefault(); stopDigest(); }}
+                >
+                  {digestGenerating ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
+                  {digestGenerating ? (lang === "fr" ? "Génération…" : "Generating…") : (lang === "fr" ? "Stop" : "Stop")}
+                </button>
+              )}
+            </div>
+          ) : null)}
           </div>
         </div>
         {generating ? (
