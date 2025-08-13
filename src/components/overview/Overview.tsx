@@ -305,9 +305,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   }
 
 
-  // Rafraîchissement automatique toutes les 15 minutes, et au retour en visibilité
+  // Rafraîchissement automatique toutes les 5 minutes, et au retour en visibilité
   useEffect(() => {
-    const FIFTEEN_MIN = 15 * 60 * 1000;
+    const FIVE_MIN = 5 * 60 * 1000;
 
     const shouldRefreshNow = (): boolean => {
       try {
@@ -317,7 +317,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         if (!j?.date) return true;
         const last = new Date(j.date).getTime();
         if (!Number.isFinite(last)) return true;
-        return Date.now() - last >= FIFTEEN_MIN;
+        return Date.now() - last >= FIVE_MIN;
       } catch {
         return true;
       }
@@ -341,7 +341,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     // Intervalle régulier
     const intervalId = setInterval(() => {
       triggerIfNeeded();
-    }, FIFTEEN_MIN);
+    }, FIVE_MIN);
 
     return () => {
       clearInterval(intervalId);
