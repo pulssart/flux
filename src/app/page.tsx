@@ -6,6 +6,7 @@ import { FeedGrid } from "@/components/feeds/FeedGrid";
 import { Overview } from "@/components/overview/Overview";
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const [selectedFeedIds, setSelectedFeedIds] = useState<string[]>([]);
@@ -14,6 +15,7 @@ export default function Home() {
   const [feedsVersion, setFeedsVersion] = useState<number>(0);
   const [showOverview, setShowOverview] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -23,6 +25,19 @@ export default function Home() {
     } catch {
       setIsMobile(false);
     }
+  }, []);
+
+  useEffect(() => {
+    // Récupérer l'état de session pour afficher un bouton login en mobile si nécessaire
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const j = (await res.json()) as { user: { email: string | null } | null };
+          setSessionEmail(j.user?.email ?? null);
+        }
+      } catch {}
+    })();
   }, []);
 
   const gridStyle = useMemo(() => {
@@ -59,6 +74,23 @@ export default function Home() {
       <main className="p-6" id="flux-main">
         <Onboarding />
         {!isMobile && <AuthModal />}
+        {isMobile && !sessionEmail ? (
+          <div className="mb-4 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/auth/login", { method: "POST" });
+                  const j = await res.json().catch(() => ({}));
+                  if (j?.url) window.location.href = j.url as string;
+                } catch {}
+              }}
+            >
+              Se connecter
+            </Button>
+          </div>
+        ) : null}
         {isMobile ? (
           <Overview isMobile />
         ) : showOverview ? (

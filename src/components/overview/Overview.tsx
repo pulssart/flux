@@ -615,6 +615,23 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             </Button>
           </div>
           )}
+          {isMobile && !sessionEmail ? (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/auth/login", { method: "POST" });
+                    const j = await res.json().catch(() => ({}));
+                    if (j?.url) window.location.href = j.url as string;
+                  } catch {}
+                }}
+              >
+                <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Fond fixe pour la section overview comme avant */}
@@ -798,6 +815,23 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </Button>
         </div>
         )}
+        {isMobile && !sessionEmail ? (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/auth/login", { method: "POST" });
+                  const j = await res.json().catch(() => ({}));
+                  if (j?.url) window.location.href = j.url as string;
+                } catch {}
+              }}
+            >
+              <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="[&_img]:w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:object-cover [&_table]:w-full [&_table]:block [&_table]:overflow-x-auto" dangerouslySetInnerHTML={{ __html: content.html }} />
       {/* Fond fixe appliqué derrière la zone p-6 (overview) en couvrant la fenêtre */}
