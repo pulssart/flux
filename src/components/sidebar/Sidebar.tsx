@@ -213,54 +213,40 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     (async () => {
       if (!sessionEmail) return;
       try {
+        // 1) Charger état feeds/folders
         const res = await fetch("/api/user/state", { method: "GET", cache: "no-store" });
-        if (!res.ok) return;
-        const j = (await res.json()) as { feeds: FeedInfo[]; folders: FolderInfo[]; preferences?: Record<string, unknown> };
-        const dbFeeds = Array.isArray(j.feeds) ? j.feeds : [];
-        const dbFolders = Array.isArray(j.folders) ? j.folders : [];
-        const prefs = (j && typeof j === "object" ? (j as any).preferences : null) as
-          | { aiTokens?: { date?: string; left?: number } | null }
-          | null;
-        const today = new Date().toISOString().slice(0, 10);
-        const serverTokens = prefs && prefs.aiTokens && typeof prefs.aiTokens === "object" ? prefs.aiTokens : null;
-        if (serverTokens && typeof serverTokens.left === "number") {
-          if (serverTokens.date === today) {
-            const clamped = Math.max(0, Math.min(DAILY_TOKENS, serverTokens.left));
-            setTokensLeft(clamped);
-            try {
-              localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left: clamped }));
-            } catch {}
-          } else {
-            // Nouveau jour: reset côté client et serveur
-            setTokensLeft(DAILY_TOKENS);
-            try {
-              localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left: DAILY_TOKENS }));
-            } catch {}
-            try {
-              void fetch("/api/user/state", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ feeds: dbFeeds, folders: dbFolders, preferences: buildPreferences() }),
-              });
-            } catch {}
+        if (res.ok) {
+          const j = (await res.json()) as { feeds: FeedInfo[]; folders: FolderInfo[] };
+          const dbFeeds = Array.isArray(j.feeds) ? j.feeds : [];
+          const dbFolders = Array.isArray(j.folders) ? j.folders : [];
+          const localFeeds = loadFeeds();
+          const localFolders = loadFolders();
+          const useDb = (dbFeeds.length + dbFolders.length) > 0;
+          if (useDb) {
+            setFeeds(dbFeeds);
+            setFolders(dbFolders);
+            saveFeeds(dbFeeds);
+            saveFolders(dbFolders);
+          } else if (localFeeds.length + localFolders.length > 0) {
+            // Première connexion: pousser le local vers la base
+            void fetch("/api/user/state", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ feeds: localFeeds, folders: localFolders, preferences: buildPreferences() }),
+            });
           }
         }
-        const localFeeds = loadFeeds();
-        const localFolders = loadFolders();
-        const useDb = (dbFeeds.length + dbFolders.length) > 0;
-        if (useDb) {
-          setFeeds(dbFeeds);
-          setFolders(dbFolders);
-          saveFeeds(dbFeeds);
-          saveFolders(dbFolders);
-        } else if (localFeeds.length + localFolders.length > 0) {
-          // Première connexion: pousser le local vers la base
-          void fetch("/api/user/state", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ feeds: localFeeds, folders: localFolders, preferences: buildPreferences() }),
-          });
-        }
+        // 2) Charger les tokens IA du jour depuis le serveur
+        try {
+          const tr = await fetch("/api/user/tokens", { method: "GET", cache: "no-store" });
+          if (tr.ok) {
+            const tj = (await tr.json()) as { left?: number; date?: string };
+            const today = new Date().toISOString().slice(0, 10);
+            const left = Number.isFinite(tj.left) ? Math.max(0, Math.min(DAILY_TOKENS, tj.left as number)) : DAILY_TOKENS;
+            setTokensLeft(left);
+            try { localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left })); } catch {}
+          }
+        } catch {}
       } catch {}
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,10 +278,11 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         // Synchroniser immédiatement en base si connecté
         try {
           if (sessionEmail) {
-            void fetch("/api/user/state", {
+            // décrément côté serveur
+            void fetch("/api/user/tokens", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ feeds, folders, preferences: buildPreferences() }),
+              body: JSON.stringify({ op: "consume", value: 1 }),
             });
           }
         } catch {}
