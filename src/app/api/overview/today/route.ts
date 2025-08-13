@@ -25,6 +25,14 @@ export async function POST(req: NextRequest) {
     // Parser rapide sans enrichissement OG (plus performant)
     // Mode rapide pour éviter les timeouts sur l'hébergement (fonction serverless ~10s)
     const parser = new Parser({ timeout: fast ? 1500 : 2000 });
+    const isYouTubeShort = (u?: string) => {
+      if (!u) return false;
+      try {
+        const url = new URL(u);
+        const parts = url.pathname.split("/").filter(Boolean).map((s) => s.toLowerCase());
+        return parts.includes("shorts");
+      } catch { return false; }
+    };
     const isYouTubeHost = (u?: string) => {
       if (!u) return false;
       try {
@@ -74,6 +82,8 @@ export async function POST(req: NextRequest) {
            const it = res.value.items[idx] as Parser.Item;
           const title = String(it.title || "Sans titre");
           const link = typeof it.link === "string" ? it.link : undefined;
+          // Exclure YouTube Shorts (réels/verticales)
+          if (link && isYouTubeShort(link)) continue;
           const pubDate = (it.isoDate as string) || (it.pubDate as string) || undefined;
            const contentEncoded = (it as unknown as Record<string, unknown>)["content:encoded"] as unknown;
            const contentStr = typeof it.content === "string" ? it.content : (typeof contentEncoded === "string" ? contentEncoded : "");
@@ -108,7 +118,10 @@ export async function POST(req: NextRequest) {
       if (!u) return false;
       try {
         const host = new URL(u).hostname.replace(/^www\./, "");
-        return host === "youtube.com" || host === "youtu.be" || host === "m.youtube.com" || host.endsWith("youtube-nocookie.com");
+        if (host !== "youtube.com" && host !== "youtu.be" && host !== "m.youtube.com" && !host.endsWith("youtube-nocookie.com")) return false;
+        // Écarter Shorts
+        if (isYouTubeShort(u)) return false;
+        return true;
       } catch { return false; }
     };
     const yt = todaysSorted.filter((x) => isYouTube(x.link));
