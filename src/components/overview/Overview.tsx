@@ -9,9 +9,11 @@ import { fr as frLocale, enUS } from "date-fns/locale";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTheme } from "next-themes";
 
 export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [lang] = useLang();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<
     | null
@@ -40,9 +42,12 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [unsplashHasMore, setUnsplashHasMore] = useState<boolean>(false);
   const fillingImagesRef = useRef(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const prevThemeRef = useRef<string | undefined>(undefined);
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [digestPlaying, setDigestPlaying] = useState(false);
   const [digestGenerating, setDigestGenerating] = useState(false);
+  const [articlePlayingId, setArticlePlayingId] = useState<string | null>(null);
+  const [articleGeneratingId, setArticleGeneratingId] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
       try {
@@ -54,6 +59,21 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       } catch {}
     })();
   }, []);
+
+  // Forcer le dark mode en mobile (en conservant/restorant le thème précédent)
+  useEffect(() => {
+    if (!isMobile) return;
+    try {
+      if (!prevThemeRef.current) prevThemeRef.current = theme ?? resolvedTheme;
+      if ((resolvedTheme || theme) !== "dark") setTheme("dark");
+    } catch {}
+    return () => {
+      try {
+        if (prevThemeRef.current && !isMobile) setTheme(prevThemeRef.current);
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
 
   async function copyLinkToClipboard(url?: string | null) {
     if (!url) return;
@@ -116,6 +136,45 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   function stopDigest() {
     try { if (audioEl) audioEl.pause(); } catch {}
     setDigestPlaying(false);
+  }
+
+  async function playArticleAudio(link?: string | null, id?: string) {
+    if (!link) return;
+    const key = id || link;
+    // Consommer un token
+    try { window.dispatchEvent(new Event("flux:ai:token:consume")); } catch {}
+    setArticleGeneratingId(key);
+    try {
+      let apiKey = "";
+      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+      const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
+      const res = await fetch("/api/ai/summarize-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: link, lang, apiKey: apiKey || undefined, voice, mode: "audio", textOnly: false }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.audio) {
+        toast.error((j?.error as string) || (lang === "fr" ? "Échec de génération audio" : "Audio generation failed"));
+        return;
+      }
+      if (audioEl) { try { audioEl.pause(); } catch {} }
+      const audio = new Audio(`data:audio/mp3;base64,${j.audio}`);
+      setAudioEl(audio);
+      setArticlePlayingId(key);
+      audio.onended = () => setArticlePlayingId((cur) => (cur === key ? null : cur));
+      await audio.play();
+      toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setArticleGeneratingId((cur) => (cur === key ? null : cur));
+    }
+  }
+
+  function stopArticleAudio(id?: string) {
+    try { if (audioEl) audioEl.pause(); } catch {}
+    setArticlePlayingId((cur) => (id && cur !== id ? cur : null));
   }
 
   function proxyImage(url?: string | null): string | null {
@@ -583,24 +642,23 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             </Button>
           </div>
           )}
-          {isMobile && !sessionEmail ? (
+          {isMobile ? (
             <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                onClick={async () => {
-                  try {
-                    const res = await fetch("/api/auth/login", { method: "POST" });
-                    const j = await res.json().catch(() => ({}));
-                    if (j?.url) window.location.href = j.url as string;
-                  } catch {}
-                }}
-              >
-                <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
-              </button>
-            </div>
-          ) : (isMobile ? (
-            <div className="ml-auto flex items-center gap-2">
+              {!sessionEmail ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/auth/login", { method: "POST" });
+                      const j = await res.json().catch(() => ({}));
+                      if (j?.url) window.location.href = j.url as string;
+                    } catch {}
+                  }}
+                >
+                  <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+                </button>
+              ) : null}
               {!digestPlaying && !digestGenerating ? (
                 <button
                   type="button"
@@ -620,7 +678,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                 </button>
               )}
             </div>
-          ) : null)}
+          ) : null}
           </div>
         </div>
         {generating ? (
@@ -874,6 +932,28 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
+                  {isMobile && it.link ? (
+                    <div className="p-2 border-t mt-auto">
+                      {articlePlayingId !== (it.link || undefined) && articleGeneratingId !== (it.link || undefined) ? (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                          onClick={(e) => { e.preventDefault(); void playArticleAudio(it.link || undefined, it.link || undefined); }}
+                        >
+                          <Play className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Lire avec IA' : 'AI Read'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                          onClick={(e) => { e.preventDefault(); stopArticleAudio(it.link || undefined); }}
+                        >
+                          {articleGeneratingId === (it.link || undefined) ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
+                          {articleGeneratingId === (it.link || undefined) ? (lang === 'fr' ? 'Génération…' : 'Generating…') : (lang === 'fr' ? 'Stop' : 'Stop')}
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </a>
             ))}
@@ -922,6 +1002,28 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
+                  {isMobile && it.link ? (
+                    <div className="p-2 border-t mt-auto">
+                      {articlePlayingId !== (it.link || undefined) && articleGeneratingId !== (it.link || undefined) ? (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                          onClick={(e) => { e.preventDefault(); void playArticleAudio(it.link || undefined, it.link || undefined); }}
+                        >
+                          <Play className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Lire avec IA' : 'AI Read'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                          onClick={(e) => { e.preventDefault(); stopArticleAudio(it.link || undefined); }}
+                        >
+                          {articleGeneratingId === (it.link || undefined) ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
+                          {articleGeneratingId === (it.link || undefined) ? (lang === 'fr' ? 'Génération…' : 'Generating…') : (lang === 'fr' ? 'Stop' : 'Stop')}
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </a>
             ))}
@@ -970,6 +1072,28 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
+                  {isMobile && it.link ? (
+                    <div className="p-2 border-t mt-auto">
+                      {articlePlayingId !== (it.link || undefined) && articleGeneratingId !== (it.link || undefined) ? (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                          onClick={(e) => { e.preventDefault(); void playArticleAudio(it.link || undefined, it.link || undefined); }}
+                        >
+                          <Play className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Lire avec IA' : 'AI Read'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                          onClick={(e) => { e.preventDefault(); stopArticleAudio(it.link || undefined); }}
+                        >
+                          {articleGeneratingId === (it.link || undefined) ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
+                          {articleGeneratingId === (it.link || undefined) ? (lang === 'fr' ? 'Génération…' : 'Generating…') : (lang === 'fr' ? 'Stop' : 'Stop')}
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </a>
             ))}
