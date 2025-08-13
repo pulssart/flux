@@ -75,7 +75,7 @@ export default function Home() {
         <Onboarding />
         {!isMobile && <AuthModal />}
         {isMobile && !sessionEmail ? (
-          <div className="mb-4 flex justify-end">
+          <div className="fixed top-3 right-3 z-50">
             <Button
               variant="outline"
               size="sm"
