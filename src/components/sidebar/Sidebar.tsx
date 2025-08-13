@@ -246,6 +246,10 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       aiVoice,
       writingStyle: xStyle,
       theme: mounted ? (theme ?? resolvedTheme) : "system",
+      aiTokens: (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        return { date: today, left: tokensLeft };
+      })(),
     };
   }
 
@@ -257,6 +261,16 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         try {
           const today = new Date().toISOString().slice(0, 10);
           localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left: next }));
+        } catch {}
+        // Synchroniser immédiatement en base si connecté
+        try {
+          if (sessionEmail) {
+            void fetch("/api/user/state", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ feeds, folders, preferences: buildPreferences() }),
+            });
+          }
         } catch {}
         return next;
       });
