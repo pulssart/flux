@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
         return parts.includes("shorts");
       } catch { return false; }
     };
+    const hasShortsMarker = (title?: string, snippet?: string) => {
+      const s = `${title || ""} ${snippet || ""}`.toLowerCase();
+      return /#shorts\b/.test(s) || /\bshorts\b/.test(s);
+    };
     const isYouTubeHost = (u?: string) => {
       if (!u) return false;
       try {
@@ -88,6 +92,8 @@ export async function POST(req: NextRequest) {
            const contentEncoded = (it as unknown as Record<string, unknown>)["content:encoded"] as unknown;
            const contentStr = typeof it.content === "string" ? it.content : (typeof contentEncoded === "string" ? contentEncoded : "");
            const contentSnippet = String(it.contentSnippet || stripHtml(contentStr)).slice(0, 420);
+            // Exclure Shorts YouTube (URL ou marqueur titre/snippet)
+            if (link && (isYouTubeShort(link) || hasShortsMarker(title, contentSnippet))) continue;
             let image = extractImageFromEnclosure(it);
             if (!image && link) {
               const yt = youtubeThumbnailFromLink(link);
