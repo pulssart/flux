@@ -25,7 +25,16 @@ export async function GET() {
     return NextResponse.json({ left: DAILY_TOKENS, date: d }, { status: 200 });
   }
 
-  const left = Number.isFinite((data as any).tokens_left) ? Math.max(0, Math.min(DAILY_TOKENS, (data as any).tokens_left as number)) : DAILY_TOKENS;
+  let left = DAILY_TOKENS;
+  const rowMaybe = data as unknown;
+  if (
+    rowMaybe &&
+    typeof rowMaybe === "object" &&
+    typeof (rowMaybe as { tokens_left?: unknown }).tokens_left === "number"
+  ) {
+    const v = (rowMaybe as { tokens_left: number }).tokens_left;
+    left = Math.max(0, Math.min(DAILY_TOKENS, v));
+  }
   return NextResponse.json({ left, date: d }, { status: 200 });
 }
 
@@ -45,7 +54,15 @@ export async function POST(req: NextRequest) {
     .eq("date", d)
     .single();
 
-  let left = Number.isFinite((existing as any)?.tokens_left) ? ((existing as any).tokens_left as number) : DAILY_TOKENS;
+  let left = DAILY_TOKENS;
+  const existingRow = existing as unknown;
+  if (
+    existingRow &&
+    typeof existingRow === "object" &&
+    typeof (existingRow as { tokens_left?: unknown }).tokens_left === "number"
+  ) {
+    left = (existingRow as { tokens_left: number }).tokens_left;
+  }
 
   if (op === "reset") {
     left = DAILY_TOKENS;
