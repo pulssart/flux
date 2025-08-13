@@ -218,6 +218,33 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
         const j = (await res.json()) as { feeds: FeedInfo[]; folders: FolderInfo[]; preferences?: Record<string, unknown> };
         const dbFeeds = Array.isArray(j.feeds) ? j.feeds : [];
         const dbFolders = Array.isArray(j.folders) ? j.folders : [];
+        const prefs = (j && typeof j === "object" ? (j as any).preferences : null) as
+          | { aiTokens?: { date?: string; left?: number } | null }
+          | null;
+        const today = new Date().toISOString().slice(0, 10);
+        const serverTokens = prefs && prefs.aiTokens && typeof prefs.aiTokens === "object" ? prefs.aiTokens : null;
+        if (serverTokens && typeof serverTokens.left === "number") {
+          if (serverTokens.date === today) {
+            const clamped = Math.max(0, Math.min(DAILY_TOKENS, serverTokens.left));
+            setTokensLeft(clamped);
+            try {
+              localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left: clamped }));
+            } catch {}
+          } else {
+            // Nouveau jour: reset côté client et serveur
+            setTokensLeft(DAILY_TOKENS);
+            try {
+              localStorage.setItem("flux:ai:tokens", JSON.stringify({ date: today, left: DAILY_TOKENS }));
+            } catch {}
+            try {
+              void fetch("/api/user/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ feeds: dbFeeds, folders: dbFolders, preferences: buildPreferences() }),
+              });
+            } catch {}
+          }
+        }
         const localFeeds = loadFeeds();
         const localFolders = loadFolders();
         const useDb = (dbFeeds.length + dbFolders.length) > 0;
