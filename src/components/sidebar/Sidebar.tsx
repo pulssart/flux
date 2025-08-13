@@ -291,7 +291,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
     };
     window.addEventListener("flux:ai:token:consume", on);
     return () => window.removeEventListener("flux:ai:token:consume", on);
-  }, []);
+  }, [sessionEmail]);
 
   function scheduleSyncToServer(nextFeeds: FeedInfo[], nextFolders: FolderInfo[]) {
     if (!sessionEmail) return;
