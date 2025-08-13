@@ -46,8 +46,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [digestPlaying, setDigestPlaying] = useState(false);
   const [digestGenerating, setDigestGenerating] = useState(false);
+  const [digestPrepared, setDigestPrepared] = useState(false);
   const [articlePlayingId, setArticlePlayingId] = useState<string | null>(null);
   const [articleGeneratingId, setArticleGeneratingId] = useState<string | null>(null);
+  const [preparedArticleId, setPreparedArticleId] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
       try {
@@ -95,6 +97,20 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   }
 
   async function playTodayDigest() {
+    // Si un audio a déjà été généré mais bloqué par l'autoplay mobile, retenter immédiatement
+    if (digestPrepared && audioEl) {
+      try {
+        audioEl.onended = () => setDigestPlaying(false);
+        await audioEl.play();
+        setDigestPrepared(false);
+        setDigestPlaying(true);
+        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+        return;
+      } catch {
+        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
+        return;
+      }
+    }
     try {
       // Consommer 1 token
       try { window.dispatchEvent(new Event("flux:ai:token:consume")); } catch {}
@@ -129,11 +145,12 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       try {
         await audio.play();
         toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
-      } catch (err) {
+      } catch {
+        // Laisser l'audio prêt et demander un second appui
         setDigestPlaying(false);
-        try { URL.revokeObjectURL(url); } catch {}
-        toast.error(lang === "fr" ? "Impossible de démarrer l'audio. Vérifie le mode silencieux et le volume." : "Could not start audio. Check silent mode and volume.");
-        throw err;
+        setDigestPrepared(true);
+        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
+        return;
       }
     } catch (e) {
       console.error(e);
@@ -143,13 +160,32 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   }
 
   function stopDigest() {
-    try { if (audioEl) audioEl.pause(); } catch {}
+    try {
+      if (audioEl) {
+        audioEl.pause();
+        try { if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src); } catch {}
+      }
+    } catch {}
     setDigestPlaying(false);
   }
 
   async function playArticleAudio(link?: string | null, id?: string) {
     if (!link) return;
     const key = id || link;
+    // Si l'audio était prêt mais bloqué, retenter sans regénérer ni reconsommer
+    if (preparedArticleId === key && audioEl) {
+      try {
+        setArticlePlayingId(key);
+        audioEl.onended = () => setArticlePlayingId((cur) => (cur === key ? null : cur));
+        await audioEl.play();
+        setPreparedArticleId(null);
+        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+        return;
+      } catch {
+        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
+        return;
+      }
+    }
     // Consommer un token
     try { window.dispatchEvent(new Event("flux:ai:token:consume")); } catch {}
     setArticleGeneratingId(key);
@@ -177,11 +213,12 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       try {
         await audio.play();
         toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
-      } catch (err) {
+      } catch {
+        // Laisser l'audio prêt et demander un second appui
         setArticlePlayingId((cur) => (cur === key ? null : cur));
-        try { URL.revokeObjectURL(url); } catch {}
-        toast.error(lang === "fr" ? "Impossible de démarrer l'audio. Vérifie le mode silencieux et le volume." : "Could not start audio. Check silent mode and volume.");
-        throw err;
+        setPreparedArticleId(key);
+        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
+        return;
       }
     } catch (e) {
       console.error(e);
@@ -191,7 +228,12 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   }
 
   function stopArticleAudio(id?: string) {
-    try { if (audioEl) audioEl.pause(); } catch {}
+    try {
+      if (audioEl) {
+        audioEl.pause();
+        try { if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src); } catch {}
+      }
+    } catch {}
     setArticlePlayingId((cur) => (id && cur !== id ? cur : null));
   }
 
