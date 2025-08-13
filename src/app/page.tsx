@@ -58,7 +58,7 @@ export default function Home() {
       )}
       <main className="p-6" id="flux-main">
         <Onboarding />
-        <AuthModal />
+        {!isMobile && <AuthModal />}
         {isMobile ? (
           <Overview isMobile />
         ) : showOverview ? (

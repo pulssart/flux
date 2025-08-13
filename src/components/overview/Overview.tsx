@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Image as ImageIcon, RefreshCcw, Trash2 } from "lucide-react";
+import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr as frLocale, enUS } from "date-fns/locale";
@@ -39,6 +39,18 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [unsplashPage, setUnsplashPage] = useState<number>(1);
   const [unsplashHasMore, setUnsplashHasMore] = useState<boolean>(false);
   const fillingImagesRef = useRef(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const j = (await res.json()) as { user: { email: string | null } | null };
+          setSessionEmail(j.user?.email ?? null);
+        }
+      } catch {}
+    })();
+  }, []);
 
   function proxyImage(url?: string | null): string | null {
     if (!url) return null;
@@ -468,6 +480,23 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             </Button>
           </div>
           )}
+          {isMobile && !sessionEmail ? (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/auth/login", { method: "POST" });
+                    const j = await res.json().catch(() => ({}));
+                    if (j?.url) window.location.href = j.url as string;
+                  } catch {}
+                }}
+              >
+                <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+              </button>
+            </div>
+          ) : null}
           </div>
         </div>
         {generating ? (
