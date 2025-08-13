@@ -120,12 +120,21 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       }
       const j = (await res.json()) as { audio: string };
       if (audioEl) { try { audioEl.pause(); } catch {} }
-      const audio = new Audio(`data:audio/mp3;base64,${j.audio}`);
+      const blob = base64ToBlob(j.audio, "audio/mpeg");
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
       setAudioEl(audio);
       setDigestPlaying(true);
-      audio.onended = () => setDigestPlaying(false);
-      await audio.play();
-      toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+      audio.onended = () => { setDigestPlaying(false); try { URL.revokeObjectURL(url); } catch {} };
+      try {
+        await audio.play();
+        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+      } catch (err) {
+        setDigestPlaying(false);
+        try { URL.revokeObjectURL(url); } catch {}
+        toast.error(lang === "fr" ? "Impossible de démarrer l'audio. Vérifie le mode silencieux et le volume." : "Could not start audio. Check silent mode and volume.");
+        throw err;
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -159,12 +168,21 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         return;
       }
       if (audioEl) { try { audioEl.pause(); } catch {} }
-      const audio = new Audio(`data:audio/mp3;base64,${j.audio}`);
+      const blob = base64ToBlob(j.audio as string, "audio/mpeg");
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
       setAudioEl(audio);
       setArticlePlayingId(key);
-      audio.onended = () => setArticlePlayingId((cur) => (cur === key ? null : cur));
-      await audio.play();
-      toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+      audio.onended = () => { setArticlePlayingId((cur) => (cur === key ? null : cur)); try { URL.revokeObjectURL(url); } catch {} };
+      try {
+        await audio.play();
+        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
+      } catch (err) {
+        setArticlePlayingId((cur) => (cur === key ? null : cur));
+        try { URL.revokeObjectURL(url); } catch {}
+        toast.error(lang === "fr" ? "Impossible de démarrer l'audio. Vérifie le mode silencieux et le volume." : "Could not start audio. Check silent mode and volume.");
+        throw err;
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -1242,6 +1260,18 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       ) : null}
     </article>
   );
+}
+
+function base64ToBlob(base64: string, type = "application/octet-stream"): Blob {
+  try {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes.buffer], { type });
+  } catch {
+    return new Blob([], { type });
+  }
 }
 
 function sanitizeOverviewHtml(html: string, lang: string, dateTitle: string): string {
