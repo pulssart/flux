@@ -619,12 +619,6 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       <div className="min-h-[60vh]">
         <div className="max-w-3xl mx-auto">
           <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4`}>
-          {isMobile ? (
-            <div className="shrink-0 self-stretch aspect-square rounded-lg overflow-hidden bg-orange-500 grid place-items-center" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="" className="h-full w-full object-contain" />
-            </div>
-          ) : null}
           <div className="min-w-0">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
               <span className="first-letter:uppercase" style={{ color: "#FF5100" }}>{weekday}</span>{" "}
@@ -825,12 +819,6 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
-          {isMobile ? (
-            <div className="shrink-0 self-stretch aspect-square rounded-lg overflow-hidden bg-orange-500 grid place-items-center" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="" className="h-full w-full object-contain" />
-            </div>
-          ) : null}
           <div className="min-w-0">
             <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
               <span className="first-letter:uppercase" style={{ color: "#FF5100" }}>{weekday}</span>{" "}
