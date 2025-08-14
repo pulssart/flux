@@ -809,7 +809,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const firstRow = rest.slice(0, 3);
     const secondRow = rest.slice(3, 6);
     const thirdRow = rest.slice(6, 9);
-    const remaining = rest.slice(9);
+    const afterRows = rest.slice(9);
+    const lastRowFocus = afterRows[0];
+    const lastRowSide = afterRows[1];
+    const remaining = afterRows.slice(2);
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
@@ -1118,6 +1121,78 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                 </div>
               </a>
             ))}
+          </div>
+        ) : null}
+
+        {/* Dernière ligne: 1 focus large (2 colonnes) + 1 carte normale */}
+        {(lastRowFocus || lastRowSide) ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {lastRowFocus ? (
+              <a href={lastRowFocus.link || undefined} target="_blank" rel="noreferrer" className="block h-full lg:col-span-2">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] group">
+                  <div className="absolute inset-0 bg-muted" />
+                  {proxyImage(lastRowFocus.image) ? (
+                    <img src={proxyImage(lastRowFocus.image) as string} alt="" className="absolute inset-0 object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                  ) : null}
+                  {lastRowFocus.link ? (
+                    <button
+                      type="button"
+                      className="absolute right-3 top-3 z-[3] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title={t(lang, "copyLink")}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(lastRowFocus.link || undefined); }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
+                    </button>
+                  ) : null}
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-[60%] backdrop-blur-2xl z-[1]"
+                    style={{
+                      WebkitMaskImage: "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 25%, rgba(0,0,0,0) 70%)",
+                      maskImage: "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 25%, rgba(0,0,0,0) 70%)",
+                    }}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute inset-0 z-[0]" aria-hidden="true" />
+                  <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[2]">
+                    <div className="text-xs mb-2 text-white/80 drop-shadow">
+                      {lastRowFocus.pubDate ? format(new Date(lastRowFocus.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-semibold leading-tight mb-2 text-white drop-shadow">{lastRowFocus.title}</h3>
+                    {lastRowFocus.summary ? (
+                      <p className="text-sm md:text-base max-w-3xl line-clamp-3 text-white/80 drop-shadow">{lastRowFocus.summary}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </a>
+            ) : null}
+            {lastRowSide ? (
+              <a href={lastRowSide.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(lastRowSide.image) ? (
+                      <img src={proxyImage(lastRowSide.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                    {lastRowSide.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={t(lang, "copyLink")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(lastRowSide.link); }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">
+                      {lastRowSide.pubDate ? format(new Date(lastRowSide.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{lastRowSide.title}</h3>
+                    {lastRowSide.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{lastRowSide.summary}</p>) : null}
+                  </div>
+                </div>
+              </a>
+            ) : null}
           </div>
         ) : null}
 
