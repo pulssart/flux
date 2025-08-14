@@ -749,24 +749,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                   <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
                 </button>
               ) : null}
-              {!digestPlaying && !digestGenerating ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                  onClick={(e) => { e.preventDefault(); void playTodayDigest(); }}
-                >
-                  <Play className="w-3.5 h-3.5" /> {lang === "fr" ? "Lire avec IA" : "AI Read"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                  onClick={(e) => { e.preventDefault(); stopDigest(); }}
-                >
-                  {digestGenerating ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
-                  {digestGenerating ? (lang === "fr" ? "Génération…" : "Generating…") : (lang === "fr" ? "Stop" : "Stop")}
-                </button>
-              )}
+              {/* Boutons lecture IA retirés sur mobile */}
             </div>
           ) : null}
           </div>
@@ -1033,28 +1016,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
-                  {isMobile && it.link ? (
-                    <div className="p-2 border-t mt-auto">
-                      {articlePlayingId !== (it.link || undefined) && articleGeneratingId !== (it.link || undefined) ? (
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                          onClick={(e) => { e.preventDefault(); void playArticleAudio(it.link || undefined, it.link || undefined); }}
-                        >
-                          <Play className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Lire avec IA' : 'AI Read'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                          onClick={(e) => { e.preventDefault(); stopArticleAudio(it.link || undefined); }}
-                        >
-                          {articleGeneratingId === (it.link || undefined) ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
-                          {articleGeneratingId === (it.link || undefined) ? (lang === 'fr' ? 'Génération…' : 'Generating…') : (lang === 'fr' ? 'Stop' : 'Stop')}
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
+                  {/* Contrôles lecture IA retirés sur mobile */}
                 </div>
               </a>
             ))}
@@ -1103,28 +1065,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
-                  {isMobile && it.link ? (
-                    <div className="p-2 border-t mt-auto">
-                      {articlePlayingId !== (it.link || undefined) && articleGeneratingId !== (it.link || undefined) ? (
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                          onClick={(e) => { e.preventDefault(); void playArticleAudio(it.link || undefined, it.link || undefined); }}
-                        >
-                          <Play className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Lire avec IA' : 'AI Read'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                          onClick={(e) => { e.preventDefault(); stopArticleAudio(it.link || undefined); }}
-                        >
-                          {articleGeneratingId === (it.link || undefined) ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
-                          {articleGeneratingId === (it.link || undefined) ? (lang === 'fr' ? 'Génération…' : 'Generating…') : (lang === 'fr' ? 'Stop' : 'Stop')}
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
+                  {/* Contrôles lecture IA retirés sur mobile */}
                 </div>
               </a>
             ))}
@@ -1173,28 +1114,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
-                  {isMobile && it.link ? (
-                    <div className="p-2 border-t mt-auto">
-                      {articlePlayingId !== (it.link || undefined) && articleGeneratingId !== (it.link || undefined) ? (
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                          onClick={(e) => { e.preventDefault(); void playArticleAudio(it.link || undefined, it.link || undefined); }}
-                        >
-                          <Play className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Lire avec IA' : 'AI Read'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                          onClick={(e) => { e.preventDefault(); stopArticleAudio(it.link || undefined); }}
-                        >
-                          {articleGeneratingId === (it.link || undefined) ? (<Loader2 className="w-3.5 h-3.5 animate-spin" />) : (<Square className="w-3.5 h-3.5" />)}
-                          {articleGeneratingId === (it.link || undefined) ? (lang === 'fr' ? 'Génération…' : 'Generating…') : (lang === 'fr' ? 'Stop' : 'Stop')}
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
+                  {/* Contrôles lecture IA retirés sur mobile */}
                 </div>
               </a>
             ))}
