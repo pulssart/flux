@@ -797,10 +797,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const nonYoutubeItems = items.filter((it) => !isYouTubeUrl(it.link));
     const featured = nonYoutubeItems[0];
     const rest = nonYoutubeItems.slice(1);
-    // Extraire jusqu'à 2 vidéos YouTube depuis la liste complète (en priorité dans rest)
+    // Extraire jusqu'à 4 vidéos YouTube depuis la liste complète (en priorité dans rest)
     const youtubeEmbeds: string[] = [];
     for (const it of items) {
-      if (youtubeEmbeds.length >= 2) break;
+      if (youtubeEmbeds.length >= 4) break;
       if (isYouTubeUrl(it.link)) {
         const e = getYouTubeEmbed(it.link);
         if (e) youtubeEmbeds.push(e);
@@ -808,7 +808,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     }
     const firstRow = rest.slice(0, 3);
     const secondRow = rest.slice(3, 6);
-    const remaining = rest.slice(6);
+    const thirdRow = rest.slice(6, 9);
+    const remaining = rest.slice(9);
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
@@ -1078,6 +1079,68 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
               <iframe
                 src={youtubeEmbeds[1]}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {/* 3ème ligne de 3 articles */}
+        {thirdRow.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {thirdRow.map((it, idx) => (
+              <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(it.image) ? (
+                      <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                    {it.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={t(lang, "copyLink")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">
+                      {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
+                    </div>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
+                    {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        {/* 3ème vidéo intercalée */}
+        {youtubeEmbeds[2] ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <iframe
+                src={youtubeEmbeds[2]}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {/* 4ème vidéo intercalée */}
+        {youtubeEmbeds[3] ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <iframe
+                src={youtubeEmbeds[3]}
                 className="absolute inset-0 w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
