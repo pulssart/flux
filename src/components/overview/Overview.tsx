@@ -895,6 +895,14 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
+                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                onClick={() => void generate()}
+                title={t(lang, "updateResume")}
+              >
+                <RefreshCcw className="w-3.5 h-3.5" /> {t(lang, "updateResume")}
+              </button>
+              <button
+                type="button"
                 className="inline-flex items-center justify-center h-8 w-8 rounded border hover:bg-foreground hover:text-background"
                 aria-label={t(lang, "settingsTooltip")}
                 title={t(lang, "settingsTooltip")}
