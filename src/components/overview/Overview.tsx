@@ -1391,6 +1391,37 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
       </div>
       <div className="[&_img]:w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:object-cover [&_table]:w-full [&_table]:block [&_table]:overflow-x-auto" dangerouslySetInnerHTML={{ __html: content.html }} />
+      {(() => {
+        // Fallback: extraire des vidéos YouTube même si items est absent
+        try {
+          const embeds: string[] = [];
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = content.html || "";
+          const links = Array.from(wrapper.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+          for (const a of links) {
+            if (embeds.length >= 4) break;
+            const href = a.getAttribute("href") || "";
+            if (isYouTubeUrl(href)) {
+              const e = getYouTubeEmbed(href);
+              if (e) embeds.push(e);
+            }
+          }
+          if (!embeds.length) return null;
+          return (
+            <div className="not-prose">
+              {embeds.slice(0, 4).map((src, i) => (
+                <div key={i} className="mt-6">
+                  <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+                    <iframe src={src} className="absolute inset-0 w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        } catch {
+          return null;
+        }
+      })()}
       {/* Fond fixe appliqué derrière la zone p-6 (overview) en couvrant la fenêtre */}
       {bgUrl ? (
         <style jsx global>{`
