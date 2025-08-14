@@ -153,6 +153,13 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const hoverFolderRef = useRef<string | null>(null);
   useEffect(() => setMounted(true), []);
 
+  // Ouvrir les réglages via un événement global (pour accès depuis la vue mobile)
+  useEffect(() => {
+    const onOpen = () => setSettingsOpen(true);
+    window.addEventListener("flux:settings:open", onOpen as EventListener);
+    return () => window.removeEventListener("flux:settings:open", onOpen as EventListener);
+  }, []);
+
   // Modale d'update: version courante, à incrémenter pour réafficher
   const UPDATE_VERSION = "2025-08-12-1" as const;
   const [showUpdate, setShowUpdate] = useState(false);

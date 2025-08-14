@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Play, Square } from "lucide-react";
+import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Play, Square, Settings2 } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr as frLocale, enUS } from "date-fns/locale";
@@ -716,6 +716,16 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
+                className="inline-flex items-center justify-center h-8 w-8 rounded border hover:bg-foreground hover:text-background"
+                aria-label={t(lang, "settingsTooltip")}
+                onClick={() => {
+                  try { window.dispatchEvent(new Event("flux:settings:open")); } catch {}
+                }}
+              >
+                <Settings2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
                 className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
                 onClick={() => {
                   try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
@@ -939,7 +949,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
               const textClass = isBright ? "text-black" : "text-white";
               const subTextClass = isBright ? "text-black/70" : "text-white/80";
               return (
-                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[420px] group">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[420px] group">
                   <div className="absolute inset-0 bg-muted" />
                   {imgUrl ? (
                     <img src={imgUrl} alt="" className="absolute inset-0 object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
@@ -989,7 +999,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {firstRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
-                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col group">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
                     {proxyImage(it.image) ? (
                       <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
@@ -1055,11 +1065,11 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
 
         {/* 2ème ligne de 3 articles */}
-        {secondRow.length ? (
+          {secondRow.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {secondRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
-                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col group">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
                     {proxyImage(it.image) ? (
                       <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
@@ -1125,11 +1135,11 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
 
         {/* Le reste des articles */}
-        {remaining.length ? (
+          {remaining.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {remaining.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
-                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[350px] flex flex-col group">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
                   <div className="relative h-[200px] bg-muted overflow-hidden group">
                     {proxyImage(it.image) ? (
                       <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />

@@ -389,7 +389,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         <DialogContent className="w-[90vw] max-w-[90vw] sm:max-w-[90vw] p-0 bg-black rounded-2xl overflow-hidden border-white/10" showCloseButton>
           <DialogTitle className="sr-only">Vidéo YouTube</DialogTitle>
           {videoUrl ? (
-      <div className="relative w-full pt-[56.25%] rounded-2xl overflow-hidden">
+          <div className="relative w-full pt-[56.25%] rounded-2xl overflow-hidden">
               <iframe
                 key={videoUrl}
                 src={videoUrl}
@@ -461,7 +461,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
 
   return (
     <a href={article.link} target="_blank" rel="noreferrer" className="block h-full">
-      <Card className="overflow-hidden border-foreground/10 hover:border-foreground/30 transition-colors h-[350px] flex flex-col p-0 gap-0">
+      <Card className="overflow-hidden border-foreground/10 hover:border-foreground/30 transition-colors sm:h-[350px] flex flex-col p-0 gap-0">
         <div className="relative h-[200px] bg-muted overflow-hidden group">
           {article.image ? (
             <img
@@ -636,7 +636,7 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
         }
       }}
     >
-      <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl h-[420px] group">
+      <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[420px] group">
         <div className="absolute inset-0 bg-muted" />
         {article.image ? (
           <img

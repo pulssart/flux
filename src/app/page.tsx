@@ -7,6 +7,7 @@ import { Overview } from "@/components/overview/Overview";
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { Button } from "@/components/ui/button";
+import { Settings2 } from "lucide-react";
 
 export default function Home() {
   const [selectedFeedIds, setSelectedFeedIds] = useState<string[]>([]);
@@ -58,7 +59,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen grid" style={gridStyle}>
-      {!isMobile && (
+      {isMobile ? (
+        <div className="hidden">
+          <Sidebar
+            onSelectFeeds={(ids) => {
+              setSelectedFeedIds(ids);
+              setShowOverview(ids.length === 0);
+            }}
+            width={sidebarWidth}
+            collapsed
+            onToggleCollapse={() => {}}
+            onResize={() => {}}
+            onFeedsChanged={() => {}}
+          />
+        </div>
+      ) : (
         <Sidebar
           onSelectFeeds={(ids) => {
             setSelectedFeedIds(ids);
@@ -74,21 +89,34 @@ export default function Home() {
       <main className="p-6" id="flux-main">
         <Onboarding />
         {!isMobile && <AuthModal />}
-        {isMobile && !sessionEmail ? (
-          <div className="fixed top-3 right-3 z-50">
+        {isMobile ? (
+          <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/auth/login", { method: "POST" });
-                  const j = await res.json().catch(() => ({}));
-                  if (j?.url) window.location.href = j.url as string;
-                } catch {}
+              size="icon"
+              onClick={() => {
+                try { window.dispatchEvent(new Event("flux:settings:open")); } catch {}
               }}
+              aria-label="Réglages"
+              title="Réglages"
             >
-              Se connecter
+              <Settings2 className="w-4 h-4" />
             </Button>
+            {!sessionEmail ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/auth/login", { method: "POST" });
+                    const j = await res.json().catch(() => ({}));
+                    if (j?.url) window.location.href = j.url as string;
+                  } catch {}
+                }}
+              >
+                Se connecter
+              </Button>
+            ) : null}
           </div>
         ) : null}
         {isMobile ? (
