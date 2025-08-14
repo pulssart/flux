@@ -14,6 +14,8 @@ import { useTheme } from "next-themes";
 export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [lang] = useLang();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  // Invalidation de cache lorsque le rendu évolue
+  const OVERVIEW_RENDER_VERSION = "2025-08-14-2" as const;
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<
     | null
@@ -301,8 +303,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
 
   useEffect(() => {
     try {
+      const ver = localStorage.getItem("flux:overview:ver");
       const saved = localStorage.getItem("flux:overview:today");
-      if (saved) {
+      if (ver === OVERVIEW_RENDER_VERSION && saved) {
         const j = JSON.parse(saved) as {
           html: string;
           date: string;
@@ -318,6 +321,10 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           const d = new Date(j.date);
           if (!isNaN(d.getTime())) setLastUpdated(d);
         }
+      } else {
+        // version périmée → purger le cache pour forcer un nouveau rendu
+        try { localStorage.removeItem("flux:overview:today"); } catch {}
+        try { localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION); } catch {}
       }
       const savedBg = localStorage.getItem("flux:overview:bg");
       if (savedBg) {
@@ -393,10 +400,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             const cleanHtml2 = sanitizeOverviewHtml(full.html, lang, dateTitle);
             setContent({ html: cleanHtml2, items: full.items, intro: full.intro });
             try {
-              localStorage.setItem(
-                "flux:overview:today",
-                JSON.stringify({ html: cleanHtml2, items: full.items, intro: full.intro, date: new Date().toISOString() })
-              );
+              localStorage.setItem("flux:overview:today", JSON.stringify({ html: cleanHtml2, items: full.items, intro: full.intro, date: new Date().toISOString() }));
+              localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION);
               setLastUpdated(new Date());
             } catch {}
           } catch (e2) {
@@ -407,10 +412,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       const cleanHtmlFinal = sanitizeOverviewHtml(j!.html, lang, dateTitle);
       setContent({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro });
       try {
-        localStorage.setItem(
-          "flux:overview:today",
-          JSON.stringify({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro, date: new Date().toISOString() })
-        );
+        localStorage.setItem("flux:overview:today", JSON.stringify({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro, date: new Date().toISOString() }));
+        localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION);
         setLastUpdated(new Date());
       } catch {}
     } catch (e: unknown) {
