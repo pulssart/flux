@@ -622,7 +622,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           {isMobile ? (
             <div className="shrink-0 self-stretch aspect-square rounded-lg overflow-hidden bg-orange-500 grid place-items-center" aria-hidden>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="" className="h-full w-full object-cover" />
+              <img src="/icon.svg" alt="" className="h-full w-full object-contain" />
             </div>
           ) : null}
           <div className="min-w-0">
@@ -828,7 +828,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           {isMobile ? (
             <div className="shrink-0 self-stretch aspect-square rounded-lg overflow-hidden bg-orange-500 grid place-items-center" aria-hidden>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="" className="h-full w-full object-cover" />
+              <img src="/icon.svg" alt="" className="h-full w-full object-contain" />
             </div>
           ) : null}
           <div className="min-w-0">
