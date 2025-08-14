@@ -49,7 +49,7 @@ export function AuthModal() {
           <div className="px-6 pt-6">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl overflow-hidden ring-1 ring-border">
-                <Image src="/icon.png" alt="Flux" width={40} height={40} className="h-10 w-10 object-cover" />
+                <Image src="/icon.svg" alt="Flux" width={40} height={40} className="h-10 w-10 object-cover" />
               </div>
               <div>
                 <DialogHeader>

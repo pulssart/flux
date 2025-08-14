@@ -21,8 +21,8 @@ export const metadata: Metadata = {
   description: "Ajoutez, renommez, réorganisez vos flux RSS. Une interface minimaliste noir & blanc.",
   icons: {
     icon: [
-      { url: "/icon.png", media: "(prefers-color-scheme: light)" },
-      { url: "/icon-dark.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/icon.svg", media: "(prefers-color-scheme: light)" },
+      { url: "/icon-dark.svg", media: "(prefers-color-scheme: dark)" },
     ],
   },
 };

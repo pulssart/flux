@@ -174,7 +174,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   }, [mounted]);
 
   const currentTheme = mounted ? (theme ?? resolvedTheme) : "light";
-  const logoSrc = currentTheme === "dark" ? "/icon-dark.png" : "/icon.png";
+  const logoSrc = currentTheme === "dark" ? "/icon-dark.svg" : "/icon.svg";
 
   useEffect(() => {
     setFeeds(loadFeeds());
@@ -805,7 +805,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full p-0 grid place-items-center">
                           <Image
-                            src={sessionAvatarUrl || "/icon.png"}
+                            src={sessionAvatarUrl || "/icon.svg"}
                             alt={sessionEmail}
                             width={20}
                             height={20}
@@ -816,7 +816,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                       <DropdownMenuContent align="end" className="min-w-56">
                         <DropdownMenuItem disabled className="opacity-100">
                           <Image
-                            src={sessionAvatarUrl || "/icon.png"}
+                             src={sessionAvatarUrl || "/icon.svg"}
                             alt=""
                             width={18}
                             height={18}
