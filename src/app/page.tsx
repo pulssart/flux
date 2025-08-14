@@ -7,7 +7,6 @@ import { Overview } from "@/components/overview/Overview";
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { Button } from "@/components/ui/button";
-import { Settings2 } from "lucide-react";
 
 export default function Home() {
   const [selectedFeedIds, setSelectedFeedIds] = useState<string[]>([]);
@@ -89,34 +88,21 @@ export default function Home() {
       <main className="p-6" id="flux-main">
         <Onboarding />
         {!isMobile && <AuthModal />}
-        {isMobile ? (
-          <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
+        {isMobile && !sessionEmail ? (
+          <div className="fixed top-3 right-3 z-50">
             <Button
               variant="outline"
-              size="icon"
-              onClick={() => {
-                try { window.dispatchEvent(new Event("flux:settings:open")); } catch {}
+              size="sm"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/auth/login", { method: "POST" });
+                  const j = await res.json().catch(() => ({}));
+                  if (j?.url) window.location.href = j.url as string;
+                } catch {}
               }}
-              aria-label="Réglages"
-              title="Réglages"
             >
-              <Settings2 className="w-4 h-4" />
+              Se connecter
             </Button>
-            {!sessionEmail ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const res = await fetch("/api/auth/login", { method: "POST" });
-                    const j = await res.json().catch(() => ({}));
-                    if (j?.url) window.location.href = j.url as string;
-                  } catch {}
-                }}
-              >
-                Se connecter
-              </Button>
-            ) : null}
           </div>
         ) : null}
         {isMobile ? (

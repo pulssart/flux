@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import useSWR from "swr";
-import { Image as ImageIcon, RefreshCcw, CalendarDays, Play, Loader2, Square, Copy, Check } from "lucide-react";
+import { Image as ImageIcon, RefreshCcw, CalendarDays, Play, Loader2, Square, Copy, Check, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cacheImagesForItems, cacheImagesForFeed, loadFeedItemsFromCache, saveFeedItemsToCache } from "@/lib/feed-cache";
@@ -350,6 +350,17 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
           >
             <RefreshCcw className="w-3.5 h-3.5 inline -mt-0.5 mr-1" /> {t(lang, "refresh")}
           </button>
+          <button
+            type="button"
+            className="text-xs px-2.5 py-1.5 rounded border bg-transparent hover:bg-foreground hover:text-background transition-colors"
+            onClick={() => {
+              try { window.dispatchEvent(new Event("flux:settings:open")); } catch {}
+            }}
+            title={t(lang, "settingsTooltip")}
+            aria-label={t(lang, "settingsTooltip")}
+          >
+            <Settings2 className="w-3.5 h-3.5 inline -mt-0.5 mr-1" /> {t(lang, "settings")}
+          </button>
         </div>
       </div>
       {articles.length === 0 ? (
@@ -461,7 +472,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
 
   return (
     <a href={article.link} target="_blank" rel="noreferrer" className="block h-full">
-      <Card className="overflow-hidden border-foreground/10 hover:border-foreground/30 transition-colors sm:h-[350px] flex flex-col p-0 gap-0">
+      <Card className="overflow-hidden border-foreground/10 hover:border-foreground/30 transition-colors flex flex-col p-0 gap-0">
         <div className="relative h-[200px] bg-muted overflow-hidden group">
           {article.image ? (
             <img
