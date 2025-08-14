@@ -901,21 +901,32 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
             </Button>
           </div>
           )}
-          {isMobile && !sessionEmail ? (
+          {isMobile ? (
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                onClick={async () => {
-                  try {
-                    const res = await fetch("/api/auth/login", { method: "POST" });
-                    const j = await res.json().catch(() => ({}));
-                    if (j?.url) window.location.href = j.url as string;
-                  } catch {}
-                }}
+                className="inline-flex items-center justify-center h-8 w-8 rounded border hover:bg-foreground hover:text-background"
+                aria-label={t(lang, "settingsTooltip")}
+                title={t(lang, "settingsTooltip")}
+                onClick={() => { try { window.dispatchEvent(new Event("flux:settings:open")); } catch {} }}
               >
-                <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+                <Settings2 className="w-4 h-4" />
               </button>
+              {!sessionEmail ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/auth/login", { method: "POST" });
+                      const j = await res.json().catch(() => ({}));
+                      if (j?.url) window.location.href = j.url as string;
+                    } catch {}
+                  }}
+                >
+                  <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1019,7 +1030,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <div className="text-xs text-muted-foreground">
                       {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
-                    <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
                   {isMobile && it.link ? (
@@ -1089,7 +1100,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <div className="text-xs text-muted-foreground">
                       {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
-                    <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
                   {isMobile && it.link ? (
@@ -1159,7 +1170,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     <div className="text-xs text-muted-foreground">
                       {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
-                    <h3 className="font-medium leading-tight line-clamp-2">{it.title}</h3>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
                   {isMobile && it.link ? (
@@ -1287,21 +1298,34 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </Button>
         </div>
         )}
-        {isMobile && !sessionEmail ? (
+        {isMobile ? (
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/auth/login", { method: "POST" });
-                  const j = await res.json().catch(() => ({}));
-                  if (j?.url) window.location.href = j.url as string;
-                } catch {}
+              className="inline-flex items-center justify-center h-8 w-8 rounded border hover:bg-foreground hover:text-background"
+              aria-label={t(lang, "settingsTooltip")}
+              title={t(lang, "settingsTooltip")}
+              onClick={() => {
+                try { window.dispatchEvent(new Event("flux:settings:open")); } catch {}
               }}
             >
-              <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+              <Settings2 className="w-4 h-4" />
             </button>
+            {!sessionEmail ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/auth/login", { method: "POST" });
+                    const j = await res.json().catch(() => ({}));
+                    if (j?.url) window.location.href = j.url as string;
+                  } catch {}
+                }}
+              >
+                <LogIn className="w-3.5 h-3.5" /> {lang === "fr" ? "Se connecter" : "Sign in"}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
