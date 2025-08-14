@@ -627,7 +627,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           ) : null}
           <div className="min-w-0">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-              <span className="text-orange-500 first-letter:uppercase">{weekday}</span>{" "}
+              <span className="first-letter:uppercase" style={{ color: "#FF5100" }}>{weekday}</span>{" "}
               <span className="first-letter:uppercase">{dateRest}</span>
             </h1>
             {updatedLabel ? (
@@ -833,7 +833,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           ) : null}
           <div className="min-w-0">
             <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
-              <span className="text-orange-500 first-letter:uppercase">{weekday}</span>{" "}
+              <span className="first-letter:uppercase" style={{ color: "#FF5100" }}>{weekday}</span>{" "}
               <span className="first-letter:uppercase">{dateRest}</span>
             </h1>
             {lastUpdated ? (
@@ -1282,7 +1282,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-2`}>
         <div className="min-w-0">
           <h1 className="m-0 text-3xl md:text-4xl font-extrabold tracking-tight">
-            <span className="text-orange-500 first-letter:uppercase">{weekday}</span>{" "}
+            <span className="first-letter:uppercase" style={{ color: "#FF5100" }}>{weekday}</span>{" "}
             <span className="first-letter:uppercase">{dateRest}</span>
           </h1>
           {lastUpdated ? (
