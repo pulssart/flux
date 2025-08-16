@@ -314,12 +314,6 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const featured: Article | undefined = articles[0];
   const rest: Article[] = articles.slice(1);
 
-  // Détecter support du hover (tablettes n'ont souvent pas de hover)
-  const [hasHover, setHasHover] = useState(true);
-  useEffect(() => {
-    try { setHasHover(window.matchMedia('(hover: hover)').matches); } catch { setHasHover(true); }
-  }, []);
-
   return (
     <div>
       <div className="flex items-start justify-between gap-4 mb-6">
@@ -453,6 +447,14 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
   // util locales retirées (non utilisées dans cette carte)
   const [lang] = useLang();
   const [copied, setCopied] = useState(false);
+  const [hasHover, setHasHover] = useState<boolean>(true);
+  useEffect(() => {
+    try {
+      setHasHover(window.matchMedia('(hover: hover)').matches);
+    } catch {
+      setHasHover(true);
+    }
+  }, []);
   async function copyLink(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -476,10 +478,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
     }
   }
 
-  const [hasHover, setHasHover] = useState(true);
-  useEffect(() => {
-    try { setHasHover(window.matchMedia('(hover: hover)').matches); } catch { setHasHover(true); }
-  }, []);
+  // supprimé doublon hasHover
 
   return (
     <a href={article.link} target="_blank" rel="noreferrer" className="block h-full">
