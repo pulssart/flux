@@ -1049,7 +1049,13 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
 
         {/* 1ère vidéo intercalée */}
-        {youtubeEmbeds[0] ? (
+        {generating ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <Skeleton className="absolute inset-0 w-full h-full" />
+            </div>
+          </div>
+        ) : youtubeEmbeds[0] ? (
           <div className="mt-6">
             <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
               <iframe
@@ -1111,7 +1117,13 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
 
         {/* 2ème vidéo intercalée */}
-        {youtubeEmbeds[1] ? (
+        {generating ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <Skeleton className="absolute inset-0 w-full h-full" />
+            </div>
+          </div>
+        ) : youtubeEmbeds[1] ? (
           <div className="mt-6">
             <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
               <iframe
@@ -1244,7 +1256,13 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
 
         {/* 3ème vidéo intercalée */}
-        {youtubeEmbeds[2] ? (
+        {generating ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <Skeleton className="absolute inset-0 w-full h-full" />
+            </div>
+          </div>
+        ) : youtubeEmbeds[2] ? (
           <div className="mt-6">
             <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
               <iframe
@@ -1258,7 +1276,13 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         ) : null}
 
         {/* 4ème vidéo intercalée */}
-        {youtubeEmbeds[3] ? (
+        {generating ? (
+          <div className="mt-6">
+            <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
+              <Skeleton className="absolute inset-0 w-full h-full" />
+            </div>
+          </div>
+        ) : youtubeEmbeds[3] ? (
           <div className="mt-6">
             <div className="relative w-full pt-[56.25%] rounded-xl overflow-hidden border border-foreground/10">
               <iframe
