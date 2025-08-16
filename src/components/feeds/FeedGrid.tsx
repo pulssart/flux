@@ -493,7 +493,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute right-2 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute right-2 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   onClick={copyLink}
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -506,7 +506,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="absolute right-2 top-12 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-2 top-12 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -528,7 +528,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
+                  className="absolute right-2 bottom-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

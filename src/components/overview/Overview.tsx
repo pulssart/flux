@@ -963,7 +963,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                   {featured.link ? (
                     <button
                       type="button"
-                      className="absolute right-3 top-3 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute right-3 top-3 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       title={t(lang, "copyLink")}
                       onClick={(e) => {
                         e.preventDefault();
@@ -1026,7 +1026,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
@@ -1094,7 +1094,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
@@ -1162,7 +1162,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
@@ -1196,7 +1196,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                   {lastRowFocus.link ? (
                     <button
                       type="button"
-                      className="absolute right-3 top-3 z-[3] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute right-3 top-3 z-[3] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       title={t(lang, "copyLink")}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(lastRowFocus.link || undefined); }}
                     >
@@ -1234,7 +1234,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {lastRowSide.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(lastRowSide.link); }}
                       >
@@ -1308,7 +1308,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
