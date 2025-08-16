@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Play, Square, Settings2 } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
@@ -939,8 +940,12 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           `}</style>
         ) : null}
 
-        {/* Featured */}
-        {featured ? (
+        {/* Featured ou Skeleton pendant génération */}
+        {generating ? (
+          <div className="relative overflow-hidden border border-foreground/10 rounded-xl sm:h-[420px]">
+            <Skeleton className="absolute inset-0 w-full h-full" />
+          </div>
+        ) : featured ? (
           <a href={featured.link || undefined} target="_blank" rel="noreferrer" className="block w-full">
             {(() => {
               const imgUrl = proxyImage(featured.image) || undefined;
@@ -995,8 +1000,21 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </a>
         ) : null}
 
-        {/* 1ère ligne de 3 articles */}
-        {firstRow.length ? (
+        {/* 1ère ligne de 3 articles (ou skeleton) */}
+        {generating ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="relative overflow-hidden border border-foreground/10 rounded-xl sm:h-[350px] flex flex-col">
+                <Skeleton className="h-[200px] w-full" />
+                <div className="px-3 py-2 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : firstRow.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {firstRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
@@ -1044,8 +1062,21 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </div>
         ) : null}
 
-        {/* 2ème ligne de 3 articles */}
-          {secondRow.length ? (
+        {/* 2ème ligne de 3 articles (ou skeleton) */}
+        {generating ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="relative overflow-hidden border border-foreground/10 rounded-xl sm:h-[350px] flex flex-col">
+                <Skeleton className="h-[200px] w-full" />
+                <div className="px-3 py-2 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : secondRow.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {secondRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
@@ -1093,8 +1124,21 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </div>
         ) : null}
 
-        {/* 3ème ligne de 3 articles */}
-        {thirdRow.length ? (
+        {/* 3ème ligne de 3 articles (ou skeleton) */}
+        {generating ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="relative overflow-hidden border border-foreground/10 rounded-xl sm:h-[350px] flex flex-col">
+                <Skeleton className="h-[200px] w-full" />
+                <div className="px-3 py-2 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : thirdRow.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {thirdRow.map((it, idx) => (
               <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
