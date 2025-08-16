@@ -314,6 +314,12 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const featured: Article | undefined = articles[0];
   const rest: Article[] = articles.slice(1);
 
+  // Détecter support du hover (tablettes n'ont souvent pas de hover)
+  const [hasHover, setHasHover] = useState(true);
+  useEffect(() => {
+    try { setHasHover(window.matchMedia('(hover: hover)').matches); } catch { setHasHover(true); }
+  }, []);
+
   return (
     <div>
       <div className="flex items-start justify-between gap-4 mb-6">
@@ -470,6 +476,11 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
     }
   }
 
+  const [hasHover, setHasHover] = useState(true);
+  useEffect(() => {
+    try { setHasHover(window.matchMedia('(hover: hover)').matches); } catch { setHasHover(true); }
+  }, []);
+
   return (
     <a href={article.link} target="_blank" rel="noreferrer" className="block h-full">
       <Card className="overflow-hidden border-foreground/10 hover:border-foreground/30 transition-colors flex flex-col p-0 gap-0">
@@ -493,7 +504,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute right-2 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                  className={`absolute right-2 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity ${hasHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
                   onClick={copyLink}
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -506,7 +517,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="absolute right-2 top-12 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className={`absolute right-2 top-12 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity ${hasHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -528,7 +539,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="absolute right-2 bottom-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
+                  className={`absolute right-2 bottom-2 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 ${hasHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

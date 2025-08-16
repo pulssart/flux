@@ -1026,7 +1026,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
@@ -1094,7 +1095,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
@@ -1162,7 +1164,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
@@ -1234,7 +1237,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {lastRowSide.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(lastRowSide.link); }}
                       >
@@ -1308,7 +1312,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.link ? (
                       <button
                         type="button"
-                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
                         title={t(lang, "copyLink")}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >

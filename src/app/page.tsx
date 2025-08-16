@@ -20,7 +20,8 @@ export default function Home() {
   useEffect(() => {
     try {
       const ua = navigator.userAgent || navigator.vendor || "";
-      const m = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      // Considérer iPad comme non-mobile (tablette): pas de mode mobile, mais pas de hover
+      const m = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
       setIsMobile(m);
     } catch {
       setIsMobile(false);
