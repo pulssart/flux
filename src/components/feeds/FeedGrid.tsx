@@ -301,7 +301,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     void cacheImagesForItems(allArticles);
   }
 
-  if (isLoading || (!data && isValidating)) {
+  if (isLoading || isValidating) {
     return <SkeletonGrid />;
   }
   if (error) {
