@@ -302,10 +302,16 @@ export async function POST(req: NextRequest) {
       // 2ème passe: endpoint edge (parfois plus permissif/CDN)
       const still = limited.filter((x) => !x.image && x.link);
       if (still.length && Date.now() - startedAt < timeBudgetMs - 800) {
+        const origin = (() => {
+          try { return new URL(req.url).origin; } catch {}
+          try { return (req as any)?.nextUrl?.origin || ""; } catch {}
+          return process.env.NEXT_PUBLIC_SITE_URL || "";
+        })();
+        if (origin) {
         await Promise.allSettled(
           still.map(async (it) => {
             try {
-              const r = await fetch(`${req.nextUrl.origin}/api/og-image?u=${encodeURIComponent(it.link as string)}`);
+              const r = await fetch(`${origin}/api/og-image?u=${encodeURIComponent(it.link as string)}`);
               if (r.ok) {
                 const j = (await r.json()) as { image?: string | null };
                 if (j.image) it.image = j.image;
@@ -313,6 +319,7 @@ export async function POST(req: NextRequest) {
             } catch {}
           })
         );
+        }
       }
     }
     // 3ème passe rapide: favicon domaine si toujours vide
@@ -412,7 +419,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ html, items: itemsOut, intro, dbg }, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error("/api/overview/today failed:", e);
+    return NextResponse.json({ error: msg, stack }, { status: 500 });
   }
 }
 
