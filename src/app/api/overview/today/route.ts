@@ -304,7 +304,6 @@ export async function POST(req: NextRequest) {
       if (still.length && Date.now() - startedAt < timeBudgetMs - 800) {
         const origin = (() => {
           try { return new URL(req.url).origin; } catch {}
-          try { return (req as any)?.nextUrl?.origin || ""; } catch {}
           return process.env.NEXT_PUBLIC_SITE_URL || "";
         })();
         if (origin) {

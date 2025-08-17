@@ -46,6 +46,7 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
   const maxItems = typeof opts?.maxItems === "number" && opts!.maxItems! > 0 ? Math.floor(opts!.maxItems!) : (isFast ? 20 : 60);
   const enrichOg = typeof opts?.enrichOg === "boolean" ? opts.enrichOg : !isFast;
   const timeoutMs = typeof opts?.timeoutMs === "number" && opts!.timeoutMs! > 0 ? Math.floor(opts!.timeoutMs!) : (isFast ? 4000 : 10000);
+  const ALWAYS_OG_HOSTS = ["lemonde.fr", "nytimes.com", "bbc.com", "ft.com", "lefigaro.fr"]; // rapide OG même en fast
 
   const cacheKey = `${url}#${isFast ? "fast" : "full"}#${maxItems}`;
   const cached = feedCache.get(cacheKey);
@@ -83,6 +84,15 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
           ogMeta = await fetchOgMetadata(item.link).catch(() => null);
           image = ogMeta?.image || null;
         }
+      } else if (!image && item.link) {
+        // Fast mode: OG rapide pour quelques hôtes connus
+        try {
+          const host = new URL(item.link).hostname.replace(/^www\./, "");
+          if (ALWAYS_OG_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) {
+            ogMeta = await fetchOgMetadata(item.link, Math.min(2000, timeoutMs)).catch(() => null);
+            image = ogMeta?.image || image || null;
+          }
+        } catch {}
       }
 
       // Fallback spécifique YouTube: construire l'URL de miniature si nécessaire
@@ -137,6 +147,26 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
   return result;
 }
 
+function pickBestFromSrcset(srcset?: string | null): string | null {
+  if (!srcset) return null;
+  const parts = srcset.split(",").map((s) => s.trim()).filter(Boolean);
+  let best: { url: string; width: number } | null = null;
+  for (const p of parts) {
+    const segs = p.split(/\s+/);
+    const url = segs[0];
+    const wSeg = segs.find((s) => /\d+w$/.test(s));
+    const w = wSeg ? parseInt(wSeg.replace(/\D+/g, ""), 10) : 0;
+    if (!best || w > best.width) best = { url, width: w };
+  }
+  return best?.url || null;
+}
+
+function normalizeImageUrl(u?: string | null): string | null {
+  if (!u) return null;
+  if (u.startsWith("//")) return "https:" + u;
+  return u;
+}
+
 function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
@@ -149,16 +179,23 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
       $el.attr("data-src"),
       $el.attr("data-lazy-src"),
       $el.attr("data-original"),
+      $el.attr("data-image"),
+      $el.attr("data-actualsrc"),
+      $el.attr("data-src-large"),
     ].filter(Boolean) as string[];
-    const srcset = $el.attr("srcset");
-    if (srcset) {
-      const first = srcset.split(",")[0]?.trim().split(" ")[0];
-      if (first) attrs.push(first);
-    }
+    const srcset = pickBestFromSrcset($el.attr("srcset") || $el.attr("data-srcset") || null);
+    if (srcset) attrs.push(srcset);
     candidates.push(...attrs);
   });
+  // Prendre aussi <source srcset> dans <picture>
+  $("picture source").each((_, el) => {
+    const $el = $(el);
+    const srcset = pickBestFromSrcset($el.attr("srcset") || null);
+    if (srcset) candidates.push(srcset);
+  });
   const src = candidates.find(Boolean) || null;
-  return src ? resolveUrl(src, baseLink) : null;
+  const normalized = normalizeImageUrl(src);
+  return normalized ? resolveUrl(normalized, baseLink) : null;
 }
 
 type RssParserItem = {
