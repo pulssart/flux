@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
       } catch { return false; }
     };
     const feedsOrdered = [...feeds].sort((a, b) => (isYouTubeHost(b) ? 1 : 0) - (isYouTubeHost(a) ? 1 : 0));
-    const maxFeeds = Math.min(fast ? 10 : 14, feedsOrdered.length);
+    const maxFeeds = Math.min(fast ? 14 : 30, feedsOrdered.length);
     const chunkSize = fast ? 2 : 2;
-    const timeBudgetMs = fast ? 4000 : 6000;
+    const timeBudgetMs = fast ? 5000 : 9000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
@@ -108,13 +108,33 @@ export async function POST(req: NextRequest) {
       if (items.length >= 120) break; // sécurité
       if (Date.now() - startedAt > timeBudgetMs) break;
     }
-    const todays = items.filter((it) => {
+    // Dédoublonner pour éviter répétitions d'articles identiques entre flux (mirror, multi-tags, etc.)
+    const baseItems = (() => {
+      const out: FastItem[] = [];
+      const seenLink = new Set<string>();
+      const seenTitle = new Set<string>();
+      for (const it of items) {
+        const linkKey = (it.link || "").trim();
+        const titleKey = (it.title || "").trim().toLowerCase();
+        if (linkKey) {
+          if (seenLink.has(linkKey)) continue;
+          seenLink.add(linkKey);
+        } else if (titleKey) {
+          if (seenTitle.has(titleKey)) continue;
+          seenTitle.add(titleKey);
+        }
+        out.push(it);
+      }
+      return out;
+    })();
+
+    const todays = baseItems.filter((it) => {
       if (!it.pubDate) return false;
       const t = +new Date(it.pubDate);
       return Number.isFinite(t) && t >= thresholdMs;
     });
-    // Trier par date desc et limiter à 12, en privilégiant jusqu'à 2 vidéos YouTube si présentes
-    const MAX_ITEMS = 12;
+    // Trier par date desc et limiter à 24, en privilégiant jusqu'à 2 vidéos YouTube si présentes
+    const MAX_ITEMS = 24;
     const todaysSorted = [...todays].sort((a, b) => {
       const ta = a.pubDate ? +new Date(a.pubDate) : 0;
       const tb = b.pubDate ? +new Date(b.pubDate) : 0;
@@ -151,8 +171,8 @@ export async function POST(req: NextRequest) {
 
     // Compléter les images manquantes via OG (quota limité)
     let toComplete = limited.filter((x) => !x.image && x.link);
-    // En mode rapide, ne compléter que quelques images (12 max) si demandé
-    if (fast) toComplete = toComplete.slice(0, 12);
+    // En mode rapide, ne compléter que quelques images (24 max) si demandé
+    if (fast) toComplete = toComplete.slice(0, 24);
     if ((withImages || !fast) && Date.now() - startedAt < timeBudgetMs - 1500 && toComplete.length) {
       // 1ère passe: OG rapide
       await Promise.allSettled(
