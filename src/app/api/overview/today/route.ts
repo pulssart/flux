@@ -242,6 +242,24 @@ export async function POST(req: NextRequest) {
         pushIfNew(baseForSelection, it);
       }
     }
+
+    // Assurer jusqu'à 4 vidéos même si plus anciennes: compléter depuis allSorted
+    const ensureVideos = (maxVideos: number) => {
+      const keyFrom = (it: FastItem) => ((it.link || "").trim() || (it.title || "").trim().toLowerCase());
+      const existingKeys = new Set<string>(baseForSelection.map((it) => keyFrom(it)).filter(Boolean) as string[]);
+      const currentYtCount = baseForSelection.reduce((acc, it) => acc + (isYouTube(it.link) ? 1 : 0), 0);
+      if (currentYtCount >= maxVideos || baseForSelection.length >= MAX_ITEMS) return;
+      for (const it of allSorted) {
+        if (baseForSelection.length >= MAX_ITEMS) break;
+        if (!isYouTube(it.link)) continue;
+        const k = keyFrom(it);
+        if (!k || existingKeys.has(k)) continue;
+        baseForSelection.push(it);
+        existingKeys.add(k);
+        const nowYt = baseForSelection.reduce((acc, x) => acc + (isYouTube(x.link) ? 1 : 0), 0);
+        if (nowYt >= maxVideos) break;
+      }
+    };
     const isYouTube = (u?: string) => {
       if (!u) return false;
       try {
@@ -253,6 +271,7 @@ export async function POST(req: NextRequest) {
       } catch { return false; }
     };
     const MAX_YT = 4;
+    ensureVideos(MAX_YT);
     // Inclure des vidéos même si très peu d'articles
     const yt = baseForSelection.filter((x) => isYouTube(x.link));
     const nonYt = baseForSelection.filter((x) => !isYouTube(x.link));
