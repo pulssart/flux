@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
       }
       return t >= thresholdMs;
     });
-    // Trier par date desc et limiter à 24, en privilégiant jusqu'à 2 vidéos YouTube si présentes
+    // Trier par date desc et limiter à 24, en privilégiant jusqu'à 4 vidéos YouTube si présentes
     const MAX_ITEMS = 24;
     const todaysSorted = [...todays].sort((a, b) => {
       const ta = a.pubDate ? +new Date(a.pubDate) : 0;
@@ -164,21 +164,28 @@ export async function POST(req: NextRequest) {
         return true;
       } catch { return false; }
     };
+    const MAX_YT = 4;
     const yt = todaysSorted.filter((x) => isYouTube(x.link));
     const nonYt = todaysSorted.filter((x) => !isYouTube(x.link));
-    let mergedPrioritized = [...yt.slice(0, 2), ...nonYt];
-    // Fallback: si aucune vidéo YouTube dans les dernières 24h, autoriser jusqu'à 2 vidéos sur 72h
-    if (!yt.length) {
+    let mergedPrioritized = [...yt.slice(0, MAX_YT), ...nonYt];
+    // Fallback: si moins de MAX_YT vidéos YouTube sur 24h, compléter jusqu'à MAX_YT avec 72h
+    if (yt.length < MAX_YT) {
       const threshold72h = nowMs - 72 * 60 * 60 * 1000;
-      const yt72 = items
+      const yt72All = items
         .filter((x) => isYouTube(x.link) && x.pubDate && +new Date(x.pubDate) >= threshold72h)
-        .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)))
-        .slice(0, 2);
-      if (yt72.length) {
-        // Préfixer celles qui ne sont pas déjà incluses
-        const seen = new Set(mergedPrioritized.map((x) => x.link));
-        const add = yt72.filter((x) => (x.link ? !seen.has(x.link) : true));
-        mergedPrioritized = [...add, ...mergedPrioritized];
+        .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)));
+      const seen = new Set(mergedPrioritized.map((x) => x.link || x.title));
+      const needed = MAX_YT - yt.length;
+      const extra = [] as typeof items;
+      for (const v of yt72All) {
+        const key = v.link || v.title;
+        if (!key || seen.has(key)) continue;
+        extra.push(v);
+        seen.add(key);
+        if (extra.length >= needed) break;
+      }
+      if (extra.length) {
+        mergedPrioritized = [...extra, ...mergedPrioritized];
       }
     }
     // Fallback 48h: si on a trop peu d'éléments sur 24h, compléter jusqu'à MAX_ITEMS avec les dernières 48h
