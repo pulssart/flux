@@ -18,9 +18,11 @@ export async function POST(req: NextRequest) {
     if (!feeds.length) {
       return NextResponse.json({ html: "<p>No feeds selected.</p>" }, { status: 200 });
     }
-    // Fenêtre temporelle: dernières 24h (plus robuste que minuit local serveur)
+    // Fenêtre temporelle: par défaut dernières 24h, mais si client envoie startMs/endMs (journée locale), les utiliser
     const nowMs = Date.now();
-    const thresholdMs = nowMs - 24 * 60 * 60 * 1000;
+    const clientStart = typeof (body as any)?.startMs === "number" ? Number((body as any).startMs) : null;
+    const clientEnd = typeof (body as any)?.endMs === "number" ? Number((body as any).endMs) : null;
+    const thresholdMs = clientStart && Number.isFinite(clientStart) ? clientStart : (nowMs - 24 * 60 * 60 * 1000);
 
     // Parser rapide sans enrichissement OG (plus performant)
     // Mode rapide pour éviter les timeouts sur l'hébergement (fonction serverless ~10s)
@@ -131,7 +133,11 @@ export async function POST(req: NextRequest) {
     const todays = baseItems.filter((it) => {
       if (!it.pubDate) return false;
       const t = +new Date(it.pubDate);
-      return Number.isFinite(t) && t >= thresholdMs;
+      if (!Number.isFinite(t)) return false;
+      if (clientStart && clientEnd && Number.isFinite(clientStart) && Number.isFinite(clientEnd)) {
+        return t >= clientStart && t <= clientEnd;
+      }
+      return t >= thresholdMs;
     });
     // Trier par date desc et limiter à 24, en privilégiant jusqu'à 2 vidéos YouTube si présentes
     const MAX_ITEMS = 24;
@@ -166,6 +172,34 @@ export async function POST(req: NextRequest) {
         const add = yt72.filter((x) => (x.link ? !seen.has(x.link) : true));
         mergedPrioritized = [...add, ...mergedPrioritized];
       }
+    }
+    // Fallback 48h: si on a trop peu d'éléments sur 24h, compléter jusqu'à MAX_ITEMS avec les dernières 48h
+    if (mergedPrioritized.length < MAX_ITEMS) {
+      const threshold48h = nowMs - 48 * 60 * 60 * 1000;
+      const already = new Set<string>();
+      const addKey = (it: FastItem) => {
+        const k = (it.link && it.link.trim()) || (it.title || "").toLowerCase();
+        if (k) already.add(k);
+      };
+      for (const it of mergedPrioritized) addKey(it as FastItem);
+      const baseSorted = [...baseItems]
+        .filter((x) => x.pubDate && Number.isFinite(+new Date(x.pubDate)))
+        .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)));
+      const extraNonYt = baseSorted.filter((x) => !isYouTube(x.link) && +new Date(x.pubDate!) >= threshold48h);
+      const extraYt = baseSorted.filter((x) => isYouTube(x.link) && +new Date(x.pubDate!) >= threshold48h);
+      const pushIfNew = (arr: FastItem[]) => {
+        for (const it of arr) {
+          if (mergedPrioritized.length >= MAX_ITEMS) break;
+          const key = (it.link && it.link.trim()) || (it.title || "").toLowerCase();
+          if (key && already.has(key)) continue;
+          mergedPrioritized.push(it);
+          if (key) already.add(key);
+        }
+      };
+      // Priorité aux non-YouTube pour remplir la grille
+      pushIfNew(extraNonYt);
+      // Puis YouTube si encore de la place
+      pushIfNew(extraYt);
     }
     const limited = mergedPrioritized.slice(0, MAX_ITEMS);
 

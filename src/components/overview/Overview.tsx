@@ -351,11 +351,25 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     let apiKey = "";
     try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
     const controller = new AbortController();
+    // Fenêtre "aujourd'hui" côté client (timezone locale)
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
     const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
     const res = await fetch("/api/overview/today", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feeds, lang, apiKey: apiKey || undefined, fast, images: true, debug: true }),
+      body: JSON.stringify({
+        feeds,
+        lang,
+        apiKey: apiKey || undefined,
+        fast,
+        images: true,
+        debug: true,
+        startMs: start.getTime(),
+        endMs: end.getTime(),
+      }),
       signal: controller.signal,
     });
     clearTimeout(t);
