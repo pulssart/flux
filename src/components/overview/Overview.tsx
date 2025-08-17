@@ -819,7 +819,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     // Pool pour remplir les cartes suivantes (uniquement non-YouTube)
     const pool = items.filter((it) => it !== featured && !isYouTubeUrl(it.link));
     const takeFromPool = (n: number) => {
-      const out: typeof items = [] as any;
+      const out: Array<(typeof items)[number]> = [];
       for (const it of pool) {
         const key = (it.link || it.title || "").trim();
         if (!key || usedLinks.has(it.link || "")) continue;
@@ -834,7 +834,6 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const afterRows = takeFromPool(4); // 1 focus + 1 side (+2 marge si besoin)
     const lastRowFocus = afterRows[0];
     let lastRowSide = afterRows[1];
-    let remaining = afterRows.slice(2);
     // Si focus large sans carte adjacente, compléter depuis le pool restant
     if (lastRowFocus && !lastRowSide) {
       const extra = takeFromPool(1);
