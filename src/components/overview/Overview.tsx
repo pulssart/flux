@@ -16,7 +16,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [lang] = useLang();
   const { theme, setTheme, resolvedTheme } = useTheme();
   // Invalidation de cache lorsque le rendu évolue
-  const OVERVIEW_RENDER_VERSION = "2025-08-14-2" as const;
+  const OVERVIEW_RENDER_VERSION = "2025-08-17-1" as const;
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<
     | null
