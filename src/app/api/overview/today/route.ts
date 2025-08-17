@@ -56,9 +56,9 @@ export async function POST(req: NextRequest) {
       } catch { return false; }
     };
     const feedsOrdered = [...feeds].sort((a, b) => (isYouTubeHost(b) ? 1 : 0) - (isYouTubeHost(a) ? 1 : 0));
-    const maxFeeds = Math.min(fast ? 16 : 30, feedsOrdered.length);
+    const maxFeeds = Math.min(fast ? 18 : 34, feedsOrdered.length);
     const chunkSize = fast ? 3 : 3;
-    const timeBudgetMs = fast ? 3500 : 8000;
+    const timeBudgetMs = fast ? 9000 : 18000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       if (Date.now() - startedAt > timeBudgetMs) break;
       const slice = feedsOrdered.slice(i, i + chunkSize);
       const results = await Promise.allSettled(
-        slice.map((u) => parseFeed(u, { fast: true, maxItems: 40, timeoutMs: 4000 }))
+        slice.map((u) => parseFeed(u, { fast: true, maxItems: 40, timeoutMs: 7000 }))
       );
       for (let iRes = 0; iRes < results.length; iRes++) {
         const res = results[iRes];

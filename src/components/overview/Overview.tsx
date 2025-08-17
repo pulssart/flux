@@ -396,14 +396,14 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       type OverviewItem = { title: string; link: string | null; image: string | null; summary: string; host: string; pubDate: string | null };
       let j: { html: string; items?: OverviewItem[]; intro?: string } | null = null;
       try {
-        j = await requestOverview(true, 12000);
+        j = await requestOverview(true, 20000);
       } catch (e) {
         console.warn("[overview] fast request failed", e);
       }
       // Fallback rapide si échec/timeout
       if (!j) {
         try {
-          j = await requestOverview(true, 12000);
+          j = await requestOverview(true, 20000);
         } catch (e) {
           console.error("[overview] fast request failed", e);
           throw e;
@@ -411,7 +411,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         // Lancer enrichissement en arrière-plan pour remplacer ensuite
         (async () => {
           try {
-            const full = await requestOverview(false, 25000);
+            const full = await requestOverview(false, 35000);
             const cleanHtml2 = sanitizeOverviewHtml(full.html, lang, dateTitle);
             setContent({ html: cleanHtml2, items: full.items, intro: full.intro });
             try {
