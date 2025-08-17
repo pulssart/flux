@@ -828,9 +828,14 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const secondRow = rest.slice(3, 6);
     const thirdRow = rest.slice(6, 9);
     const afterRows = rest.slice(9);
-    const lastRowFocus = afterRows[0];
-    const lastRowSide = afterRows[1];
-    const remaining = afterRows.slice(2);
+    let lastRowFocus = afterRows[0];
+    let lastRowSide = afterRows[1];
+    let remaining = afterRows.slice(2);
+    // Si on a un focus large mais pas de carte adjacente, en prendre une dans le reste
+    if (lastRowFocus && !lastRowSide && remaining.length > 0) {
+      lastRowSide = remaining[0];
+      remaining = remaining.slice(1);
+    }
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">
         <div className={`flex items-center ${isMobile ? "justify-start" : "justify-between"} gap-4 not-prose mb-4`}>
