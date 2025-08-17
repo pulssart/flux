@@ -142,25 +142,25 @@ export async function POST(req: NextRequest) {
     const MAX_YT = 4;
     const yt = todaysSorted.filter((x) => isYouTube(x.link));
     const nonYt = todaysSorted.filter((x) => !isYouTube(x.link));
-    let mergedPrioritized = [...yt.slice(0, MAX_YT), ...nonYt];
-    // Fallback: si moins de MAX_YT vidéos YouTube sur 24h, compléter jusqu'à MAX_YT avec 72h
-    if (yt.length < MAX_YT) {
-      const threshold72h = nowMs - 72 * 60 * 60 * 1000;
-      const yt72All = items
-        .filter((x) => isYouTube(x.link) && x.pubDate && +new Date(x.pubDate) >= threshold72h)
-        .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)));
-      const seen = new Set(mergedPrioritized.map((x) => x.link || x.title));
-      const needed = MAX_YT - yt.length;
-      const extra = [] as typeof items;
-      for (const v of yt72All) {
-        const key = v.link || v.title;
-        if (!key || seen.has(key)) continue;
-        extra.push(v);
-        seen.add(key);
-        if (extra.length >= needed) break;
+    // Interleave: 2 articles puis 1 vidéo (si dispo), pour éviter un flux composé uniquement de vidéos
+    const mergedPrioritized: typeof items = [];
+    let iArticle = 0;
+    let iYt = 0;
+    let ytUsed = 0;
+    while (mergedPrioritized.length < MAX_ITEMS && (iArticle < nonYt.length || iYt < yt.length)) {
+      // Ajouter jusqu'à 2 articles
+      for (let k = 0; k < 2 && mergedPrioritized.length < MAX_ITEMS && iArticle < nonYt.length; k++) {
+        mergedPrioritized.push(nonYt[iArticle++]);
       }
-      if (extra.length) {
-        mergedPrioritized = [...extra, ...mergedPrioritized];
+      // Puis 1 vidéo si on n'a pas dépassé le plafond YouTube
+      if (mergedPrioritized.length < MAX_ITEMS && iYt < yt.length && ytUsed < MAX_YT) {
+        mergedPrioritized.push(yt[iYt++]);
+        ytUsed++;
+      }
+      // Si plus d'articles du tout et qu'il reste des vidéos, on complète (jusqu'à MAX_YT)
+      if (iArticle >= nonYt.length && mergedPrioritized.length < MAX_ITEMS && iYt < yt.length && ytUsed < MAX_YT) {
+        mergedPrioritized.push(yt[iYt++]);
+        ytUsed++;
       }
     }
     const limited = mergedPrioritized.slice(0, MAX_ITEMS);
