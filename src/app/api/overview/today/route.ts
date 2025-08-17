@@ -110,22 +110,34 @@ export async function POST(req: NextRequest) {
     }
     // Dédoublonner pour éviter répétitions d'articles identiques entre flux (mirror, multi-tags, etc.)
     const baseItems = (() => {
-      const out: FastItem[] = [];
-      const seenLink = new Set<string>();
-      const seenTitle = new Set<string>();
-      for (const it of items) {
-        const linkKey = (it.link || "").trim();
-        const titleKey = (it.title || "").trim().toLowerCase();
-        if (linkKey) {
-          if (seenLink.has(linkKey)) continue;
-          seenLink.add(linkKey);
-        } else if (titleKey) {
-          if (seenTitle.has(titleKey)) continue;
-          seenTitle.add(titleKey);
+      const map = new Map<string, FastItem>();
+      const keyOf = (it: FastItem) => ((it.link || "").trim() || (it.title || "").trim().toLowerCase());
+      for (const cur of items) {
+        const k = keyOf(cur);
+        if (!k) continue;
+        const prev = map.get(k);
+        if (!prev) {
+          map.set(k, cur);
+          continue;
         }
-        out.push(it);
+        // Fusionner: préférer l'item avec image, snippet plus long, date la plus précise
+        const merged: FastItem = {
+          title: prev.title || cur.title,
+          link: prev.link || cur.link,
+          pubDate: prev.pubDate || cur.pubDate,
+          contentSnippet: (() => {
+            const a = (prev.contentSnippet || "").trim();
+            const b = (cur.contentSnippet || "").trim();
+            if (b && (!a || b.length > a.length)) return b.slice(0, 420);
+            return a.slice(0, 420);
+          })(),
+          image: prev.image || cur.image || undefined,
+        };
+        // Si l'image est absente sur prev mais présente sur cur, prendre celle de cur
+        if (!merged.image && cur.image) merged.image = cur.image;
+        map.set(k, merged);
       }
-      return out;
+      return Array.from(map.values());
     })();
 
     const todays = baseItems.filter((it) => {
@@ -301,6 +313,15 @@ export async function POST(req: NextRequest) {
             } catch {}
           })
         );
+      }
+    }
+    // 3ème passe rapide: favicon domaine si toujours vide
+    for (const it of limited) {
+      if (!it.image && it.link) {
+        try {
+          const u = new URL(it.link);
+          it.image = `https://icons.duckduckgo.com/ip3/${u.hostname}.ico`;
+        } catch {}
       }
     }
 
