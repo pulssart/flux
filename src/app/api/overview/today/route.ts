@@ -9,19 +9,30 @@ export async function POST(req: NextRequest) {
     const dbgStart = Date.now();
     // Charger la liste des feeds depuis localStorage côté client n'est pas possible ici.
     // On s'attend à recevoir la liste côté client dans le futur; pour MVP on lit un header JSON optionnel.
-    const body = await req.json().catch(() => ({}));
-    const feeds: string[] = Array.isArray(body?.feeds) ? body.feeds : [];
-    const lang: string = typeof body?.lang === "string" ? body.lang : "fr";
-    const apiKey: string | undefined = typeof body?.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : (process.env.OPENAI_API_KEY || undefined);
-    const fast: boolean = body?.fast === true;
-    const withImages: boolean = body?.images === true;
+    interface OverviewRequestBody {
+      feeds?: string[];
+      lang?: string;
+      apiKey?: string;
+      fast?: boolean;
+      images?: boolean;
+      debug?: boolean;
+      startMs?: number;
+      endMs?: number;
+    }
+    const raw = await req.json().catch(() => ({}));
+    const body: Partial<OverviewRequestBody> = (raw && typeof raw === "object" ? raw : {}) as Partial<OverviewRequestBody>;
+    const feeds: string[] = Array.isArray(body.feeds) ? body.feeds : [];
+    const lang: string = typeof body.lang === "string" ? body.lang : "fr";
+    const apiKey: string | undefined = typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : (process.env.OPENAI_API_KEY || undefined);
+    const fast: boolean = body.fast === true;
+    const withImages: boolean = body.images === true;
     if (!feeds.length) {
       return NextResponse.json({ html: "<p>No feeds selected.</p>" }, { status: 200 });
     }
     // Fenêtre temporelle: par défaut dernières 24h, mais si client envoie startMs/endMs (journée locale), les utiliser
     const nowMs = Date.now();
-    const clientStart = typeof (body as any)?.startMs === "number" ? Number((body as any).startMs) : null;
-    const clientEnd = typeof (body as any)?.endMs === "number" ? Number((body as any).endMs) : null;
+    const clientStart = typeof body.startMs === "number" ? Number(body.startMs) : null;
+    const clientEnd = typeof body.endMs === "number" ? Number(body.endMs) : null;
     const thresholdMs = clientStart && Number.isFinite(clientStart) ? clientStart : (nowMs - 24 * 60 * 60 * 1000);
 
     // Parser rapide sans enrichissement OG (plus performant)
