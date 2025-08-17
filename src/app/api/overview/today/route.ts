@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
-import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 import { youtubeThumbnailFromLink } from "@/lib/rss";
 import { parseFeed } from "@/lib/rss";
@@ -36,9 +35,7 @@ export async function POST(req: NextRequest) {
     const clientEnd = typeof body.endMs === "number" ? Number(body.endMs) : null;
     const thresholdMs = clientStart && Number.isFinite(clientStart) ? clientStart : (nowMs - 24 * 60 * 60 * 1000);
 
-    // Parser: privilégier notre parseur central (aligne avec FeedGrid) pour une meilleure robustesse
-    // On garde une instance rss-parser uniquement pour compat legacy si besoin
-    const parser = new Parser({ timeout: fast ? 1500 : 2000 });
+    // Parser: on utilise le parseur central (aligne avec FeedGrid) pour une meilleure robustesse
     const isYouTubeShort = (u?: string) => {
       if (!u) return false;
       try {
@@ -67,28 +64,6 @@ export async function POST(req: NextRequest) {
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
     const items: FastItem[] = [];
 
-    function stripHtml(html?: string): string {
-      if (!html) return "";
-      return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    }
-    function extractImageFromEnclosure(anyItem: unknown): string | undefined {
-      if (!anyItem || typeof anyItem !== "object") return undefined;
-      const obj = anyItem as Record<string, unknown> & { enclosure?: { url?: unknown; type?: unknown } };
-      const enc = obj.enclosure;
-      if (enc && typeof enc === "object") {
-        const url = (enc as { url?: unknown }).url;
-        const type = (enc as { type?: unknown }).type;
-        if (typeof url === "string" && (!type || String(type).startsWith("image/"))) return url;
-      }
-      const media = (obj as Record<string, unknown>)["media:content"] || (obj as Record<string, unknown>)["media:thumbnail"] || (obj as Record<string, unknown>)["itunes:image"];
-      if (typeof media === "string") return media;
-      if (media && typeof media === "object") {
-        const m = media as Record<string, unknown> & { url?: unknown; href?: unknown; $?: { url?: unknown } };
-        const u = (typeof m.url === "string" ? m.url : undefined) || (typeof m.href === "string" ? m.href : undefined) || (m.$ && typeof m.$.url === "string" ? m.$.url : undefined);
-        if (typeof u === "string") return u;
-      }
-      return undefined;
-    }
 
     for (let i = 0; i < maxFeeds; i += chunkSize) {
       if (Date.now() - startedAt > timeBudgetMs) break;
@@ -187,34 +162,6 @@ export async function POST(req: NextRequest) {
       if (extra.length) {
         mergedPrioritized = [...extra, ...mergedPrioritized];
       }
-    }
-    // Fallback 48h: si on a trop peu d'éléments sur 24h, compléter jusqu'à MAX_ITEMS avec les dernières 48h
-    if (mergedPrioritized.length < MAX_ITEMS) {
-      const threshold48h = nowMs - 48 * 60 * 60 * 1000;
-      const already = new Set<string>();
-      const addKey = (it: FastItem) => {
-        const k = (it.link && it.link.trim()) || (it.title || "").toLowerCase();
-        if (k) already.add(k);
-      };
-      for (const it of mergedPrioritized) addKey(it as FastItem);
-      const baseSorted = [...baseItems]
-        .filter((x) => x.pubDate && Number.isFinite(+new Date(x.pubDate)))
-        .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)));
-      const extraNonYt = baseSorted.filter((x) => !isYouTube(x.link) && +new Date(x.pubDate!) >= threshold48h);
-      const extraYt = baseSorted.filter((x) => isYouTube(x.link) && +new Date(x.pubDate!) >= threshold48h);
-      const pushIfNew = (arr: FastItem[]) => {
-        for (const it of arr) {
-          if (mergedPrioritized.length >= MAX_ITEMS) break;
-          const key = (it.link && it.link.trim()) || (it.title || "").toLowerCase();
-          if (key && already.has(key)) continue;
-          mergedPrioritized.push(it);
-          if (key) already.add(key);
-        }
-      };
-      // Priorité aux non-YouTube pour remplir la grille
-      pushIfNew(extraNonYt);
-      // Puis YouTube si encore de la place
-      pushIfNew(extraYt);
     }
     const limited = mergedPrioritized.slice(0, MAX_ITEMS);
 

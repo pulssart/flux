@@ -1666,7 +1666,7 @@ function getFaviconUrl(u: string): string {
   }
 }
 
-function CollapsedItem({ id, url, title, selected, onToggle }: { id: string; url: string; title: string; selected: boolean; onToggle: () => void }) {
+function CollapsedItem({ id: _id, url, title, selected, onToggle }: { id: string; url: string; title: string; selected: boolean; onToggle: () => void }) {
   return (
     <li
       className={cn(

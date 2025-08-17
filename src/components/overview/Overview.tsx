@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Play, Square, Settings2 } from "lucide-react";
+import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Settings2 } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr as frLocale, enUS } from "date-fns/locale";
@@ -50,6 +50,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const [digestPlaying, setDigestPlaying] = useState(false);
   const [digestGenerating, setDigestGenerating] = useState(false);
   const [digestPrepared, setDigestPrepared] = useState(false);
+  // IDs d'article (utilisés par les contrôles audio internes)
   const [articlePlayingId, setArticlePlayingId] = useState<string | null>(null);
   const [articleGeneratingId, setArticleGeneratingId] = useState<string | null>(null);
   const [preparedArticleId, setPreparedArticleId] = useState<string | null>(null);
@@ -336,9 +337,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       const savedKey = localStorage.getItem("flux:unsplash:key");
       if (savedKey) setUnsplashKey(savedKey);
     } catch {}
-  }, [lang, dateTitle]);
+  }, [lang]);
 
-  async function requestOverview(fast: boolean, timeoutMs: number) {
+  const requestOverview = useCallback(async (fast: boolean, timeoutMs: number) => {
     const startedAt = Date.now();
     let feeds: string[] = [];
     try {
@@ -384,8 +385,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       intro?: string;
       dbg?: unknown;
     };
-  }
-
+  }, [lang, dateTitle]);
   const generate = useCallback(async () => {
     if (generatingRef.current) return;
     generatingRef.current = true;
@@ -560,7 +560,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [lang, dateTitle]);
+  }, [lang, dateTitle, generate]);
 
   // Déclencher une recherche auto à l'ouverture si une requête est présente (la clé peut venir du serveur)
   useEffect(() => {
@@ -828,7 +828,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const secondRow = rest.slice(3, 6);
     const thirdRow = rest.slice(6, 9);
     const afterRows = rest.slice(9);
-    let lastRowFocus = afterRows[0];
+    const lastRowFocus = afterRows[0];
     let lastRowSide = afterRows[1];
     let remaining = afterRows.slice(2);
     // Si on a un focus large mais pas de carte adjacente, en prendre une dans le reste

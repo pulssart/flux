@@ -273,7 +273,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
                   const text = (j.text as string) || "";
                   const appended = text ? `${text} ${article.link}` : article.link;
                   setXText(appended);
-                } catch (e) {
+                } catch {
                   toast.error(lang === "fr" ? "Génération du post échouée" : "Post generation failed");
                 } finally {
                   setXLoading(false);
@@ -370,6 +370,7 @@ function StructuredSummary({ summary, imageUrl }: { summary: string; imageUrl?: 
       <div className="space-y-4">
         {imageUrl ? (
           <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/proxy-image/${btoa(imageUrl).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")}`}
               alt=""
