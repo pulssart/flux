@@ -444,7 +444,59 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           console.warn("[overview] generate: abort-msg", msg);
         } else {
           console.error(e);
-          toast.error("Failed to generate");
+          // Fallback local: charger rapidement via /api/feeds/batch et construire un aperçu minimal
+          try {
+            const feeds = (() => {
+              try {
+                const str = localStorage.getItem("flux:feeds");
+                if (!str) return [] as string[];
+                const arr = JSON.parse(str) as { url: string }[];
+                return arr.map((x) => x.url).filter(Boolean);
+              } catch { return [] as string[]; }
+            })();
+            if (feeds.length) {
+              const controller = new AbortController();
+              const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 15000);
+              const res = await fetch("/api/feeds/batch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ feeds }),
+                signal: controller.signal,
+              });
+              clearTimeout(t);
+              if (res.ok) {
+                const j = (await res.json()) as { items: Array<{ title: string; link?: string | null; image?: string | null; contentSnippet?: string | null; pubDate?: string | null }> };
+                const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+                const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+                const items = (j.items || [])
+                  .filter((it) => {
+                    if (!it.pubDate) return false;
+                    const tms = +new Date(it.pubDate);
+                    return Number.isFinite(tms) && tms >= +todayStart && tms <= +todayEnd;
+                  })
+                  .sort((a, b) => (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0)))
+                  .slice(0, 24)
+                  .map((it) => {
+                    let host = ""; try { if (it.link) host = new URL(it.link).hostname.replace(/^www\./, ""); } catch {}
+                    return { title: it.title, link: it.link || null, image: it.image || null, summary: it.contentSnippet || "", host, pubDate: it.pubDate || null };
+                  });
+                if (items.length) {
+                  setContent({ html: "", items });
+                  try {
+                    localStorage.setItem("flux:overview:today", JSON.stringify({ html: "", items, date: new Date().toISOString() }));
+                    localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION);
+                    setLastUpdated(new Date());
+                  } catch {}
+                  toast.success(lang === "fr" ? "Mode dégradé chargé" : "Loaded fallback mode");
+                  return;
+                }
+              }
+            }
+            toast.error("Failed to generate");
+          } catch (e2) {
+            console.warn("[overview] fallback batch failed", e2);
+            toast.error("Failed to generate");
+          }
         }
       } else {
         console.error(e);
