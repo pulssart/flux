@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       debug?: boolean;
       startMs?: number;
       endMs?: number;
+      budgetMs?: number;
     }
     const raw = await req.json().catch(() => ({}));
     const body: Partial<OverviewRequestBody> = (raw && typeof raw === "object" ? raw : {}) as Partial<OverviewRequestBody>;
@@ -58,7 +59,9 @@ export async function POST(req: NextRequest) {
     const feedsOrdered = [...feeds].sort((a, b) => (isYouTubeHost(b) ? 1 : 0) - (isYouTubeHost(a) ? 1 : 0));
     const maxFeeds = Math.min(fast ? 18 : 34, feedsOrdered.length);
     const chunkSize = fast ? 3 : 3;
-    const timeBudgetMs = fast ? 9000 : 18000;
+    const requestedBudget = typeof body.budgetMs === "number" ? Math.max(1000, Math.min(60000, Math.floor(body.budgetMs))) : null;
+    const defaultBudget = fast ? 9000 : 18000;
+    const timeBudgetMs = requestedBudget ?? defaultBudget;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
