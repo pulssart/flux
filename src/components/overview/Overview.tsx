@@ -392,18 +392,18 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     setGenerating(true);
     try {
       console.log("[overview] generate: start", { lang });
-      // Tentative complète d'abord
+      // Tentative rapide d'abord (pour éviter les timeouts), puis enrichissement en arrière-plan
       type OverviewItem = { title: string; link: string | null; image: string | null; summary: string; host: string; pubDate: string | null };
       let j: { html: string; items?: OverviewItem[]; intro?: string } | null = null;
       try {
-        j = await requestOverview(false, 45000);
+        j = await requestOverview(true, 12000);
       } catch (e) {
-        console.warn("[overview] full request failed, fallback to fast", e);
+        console.warn("[overview] fast request failed", e);
       }
       // Fallback rapide si échec/timeout
       if (!j) {
         try {
-          j = await requestOverview(true, 15000);
+          j = await requestOverview(true, 12000);
         } catch (e) {
           console.error("[overview] fast request failed", e);
           throw e;
@@ -411,7 +411,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
         // Lancer enrichissement en arrière-plan pour remplacer ensuite
         (async () => {
           try {
-            const full = await requestOverview(false, 45000);
+            const full = await requestOverview(false, 25000);
             const cleanHtml2 = sanitizeOverviewHtml(full.html, lang, dateTitle);
             setContent({ html: cleanHtml2, items: full.items, intro: full.intro });
             try {
@@ -811,29 +811,45 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   // Rendu éditorial si items présents
   if (content?.items && content.items.length) {
     const items = content.items;
-    // Exclure les vidéos YouTube des cartes et du focus
-    const nonYoutubeItems = items.filter((it) => !isYouTubeUrl(it.link));
-    const featured = nonYoutubeItems[0];
-    const rest = nonYoutubeItems.slice(1);
-    // Extraire jusqu'à 4 vidéos YouTube depuis la liste complète (en priorité dans rest)
+    // Cartes: n'utiliser que des articles (pas de YouTube). Les vidéos seront affichées en embed plein largeur.
+    const firstNonYt = items.find((it) => !isYouTubeUrl(it.link));
+    const featured = firstNonYt || undefined;
+    const usedLinks = new Set<string>();
+    if (featured?.link) usedLinks.add(featured.link);
+    // Pool pour remplir les cartes suivantes (uniquement non-YouTube)
+    const pool = items.filter((it) => it !== featured && !isYouTubeUrl(it.link));
+    const takeFromPool = (n: number) => {
+      const out: typeof items = [] as any;
+      for (const it of pool) {
+        const key = (it.link || it.title || "").trim();
+        if (!key || usedLinks.has(it.link || "")) continue;
+        out.push(it);
+        if (it.link) usedLinks.add(it.link);
+        if (out.length >= n) break;
+      }
+      return out;
+    };
+    const firstRow = takeFromPool(3);
+    const secondRow = takeFromPool(3);
+    const afterRows = takeFromPool(4); // 1 focus + 1 side (+2 marge si besoin)
+    const lastRowFocus = afterRows[0];
+    let lastRowSide = afterRows[1];
+    let remaining = afterRows.slice(2);
+    // Si focus large sans carte adjacente, compléter depuis le pool restant
+    if (lastRowFocus && !lastRowSide) {
+      const extra = takeFromPool(1);
+      if (extra[0]) lastRowSide = extra[0];
+    }
+    // Préparer les embeds YouTube (exclure tout item déjà utilisé en carte)
     const youtubeEmbeds: string[] = [];
     for (const it of items) {
       if (youtubeEmbeds.length >= 4) break;
       if (isYouTubeUrl(it.link)) {
+        const linkKey = (it.link || "").trim();
+        if (linkKey && usedLinks.has(linkKey)) continue;
         const e = getYouTubeEmbed(it.link);
         if (e) youtubeEmbeds.push(e);
       }
-    }
-    const firstRow = rest.slice(0, 3);
-    const secondRow = rest.slice(3, 6);
-    const afterRows = rest.slice(6);
-    const lastRowFocus = afterRows[0];
-    let lastRowSide = afterRows[1];
-    let remaining = afterRows.slice(2);
-    // Si on a un focus large mais pas de carte adjacente, en prendre une dans le reste
-    if (lastRowFocus && !lastRowSide && remaining.length > 0) {
-      lastRowSide = remaining[0];
-      remaining = remaining.slice(1);
     }
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-0">

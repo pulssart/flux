@@ -56,22 +56,28 @@ export async function POST(req: NextRequest) {
       } catch { return false; }
     };
     const feedsOrdered = [...feeds].sort((a, b) => (isYouTubeHost(b) ? 1 : 0) - (isYouTubeHost(a) ? 1 : 0));
-    const maxFeeds = Math.min(fast ? 14 : 30, feedsOrdered.length);
-    const chunkSize = fast ? 2 : 2;
-    const timeBudgetMs = fast ? 5000 : 9000;
+    const maxFeeds = Math.min(fast ? 16 : 30, feedsOrdered.length);
+    const chunkSize = fast ? 3 : 3;
+    const timeBudgetMs = fast ? 3500 : 8000;
     const startedAt = Date.now();
 
     type FastItem = { title: string; link?: string; pubDate?: string; contentSnippet?: string; image?: string };
     const items: FastItem[] = [];
+    const perFeed: Array<{ feed: string; items: FastItem[] }> = [];
 
 
     for (let i = 0; i < maxFeeds; i += chunkSize) {
       if (Date.now() - startedAt > timeBudgetMs) break;
       const slice = feedsOrdered.slice(i, i + chunkSize);
-      const results = await Promise.allSettled(slice.map((u) => parseFeed(u)));
-      for (const res of results) {
+      const results = await Promise.allSettled(
+        slice.map((u) => parseFeed(u, { fast: true, maxItems: 40, timeoutMs: 4000 }))
+      );
+      for (let iRes = 0; iRes < results.length; iRes++) {
+        const res = results[iRes];
+        const feedUrl = slice[iRes];
         if (res.status !== "fulfilled") continue;
         const list = res.value.items || [];
+        const feedItems: FastItem[] = [];
         for (let idx = 0; idx < list.length; idx++) {
           const it = list[idx];
           const title = String(it.title || "Sans titre");
@@ -85,10 +91,19 @@ export async function POST(req: NextRequest) {
             const yt = youtubeThumbnailFromLink(link);
             if (yt) image = yt;
           }
-          items.push({ title, link, pubDate, contentSnippet, image: image || undefined });
-          if (idx >= 50) break; // ne pas sur-consommer
+          const fastItem: FastItem = { title, link, pubDate, contentSnippet, image: image || undefined };
+          feedItems.push(fastItem);
+          items.push(fastItem);
+          if (idx >= 50) break;
           if (Date.now() - startedAt > timeBudgetMs) break;
         }
+        // Trier les items du flux par date desc
+        feedItems.sort((a, b) => {
+          const ta = a.pubDate ? +new Date(a.pubDate) : 0;
+          const tb = b.pubDate ? +new Date(b.pubDate) : 0;
+          return tb - ta;
+        });
+        perFeed.push({ feed: feedUrl, items: feedItems });
       }
       if (items.length >= 200) break; // sécurité
       if (Date.now() - startedAt > timeBudgetMs) break;
@@ -122,13 +137,99 @@ export async function POST(req: NextRequest) {
       }
       return t >= thresholdMs;
     });
-    // Trier par date desc et limiter à 24, en privilégiant jusqu'à 4 vidéos YouTube si présentes
+    // Trier par date desc pour fallback et préparer un round-robin par flux
     const MAX_ITEMS = 24;
     const todaysSorted = [...todays].sort((a, b) => {
       const ta = a.pubDate ? +new Date(a.pubDate) : 0;
       const tb = b.pubDate ? +new Date(b.pubDate) : 0;
       return tb - ta;
     });
+    // Fallback: si la journée est pauvre, compléter avec les plus récents (jusqu'à 72h) pour garantir un flux rempli
+    const allSorted = [...baseItems]
+      .filter((it) => it.pubDate && Number.isFinite(+new Date(it.pubDate)))
+      .sort((a, b) => {
+        const ta = a.pubDate ? +new Date(a.pubDate) : 0;
+        const tb = b.pubDate ? +new Date(b.pubDate) : 0;
+        return tb - ta;
+      });
+    const seventyTwoHoursAgo = nowMs - 72 * 60 * 60 * 1000;
+    const fallbackRecent = allSorted.filter((it) => {
+      const t = it.pubDate ? +new Date(it.pubDate) : 0;
+      return t >= seventyTwoHoursAgo;
+    });
+    // Construire une sélection proportionnelle aux flux: round-robin par flux (1 à 2 items par tour)
+    const byFeedTodays = perFeed.map(({ feed, items }) => {
+      const arr = items.filter((it) => {
+        if (!it.pubDate) return false;
+        const t = +new Date(it.pubDate);
+        if (!Number.isFinite(t)) return false;
+        if (clientStart && clientEnd && Number.isFinite(clientStart) && Number.isFinite(clientEnd)) {
+          return t >= clientStart && t <= clientEnd;
+        }
+        return t >= thresholdMs;
+      });
+      return { feed, items: arr };
+    });
+    const byFeedRecent72 = perFeed.map(({ feed, items }) => {
+      const arr = items.filter((it) => {
+        if (!it.pubDate) return false;
+        const t = +new Date(it.pubDate);
+        return Number.isFinite(t) && t >= seventyTwoHoursAgo;
+      });
+      return { feed, items: arr };
+    });
+
+    const seenKey = new Set<string>();
+    const pushIfNew = (dst: FastItem[], it: FastItem) => {
+      const key = (it.link || it.title || "").trim().toLowerCase();
+      if (!key || seenKey.has(key)) return false;
+      seenKey.add(key);
+      dst.push(it);
+      return true;
+    };
+
+    const roundRobinFill = (groups: Array<{ feed: string; items: FastItem[] }>, maxPerFeedFirstPass = 2) => {
+      const indices = new Map<string, number>();
+      for (const g of groups) indices.set(g.feed, 0);
+      // Première passe: jusqu'à maxPerFeedFirstPass par flux
+      for (let pass = 0; pass < maxPerFeedFirstPass; pass++) {
+        for (const g of groups) {
+          const i = indices.get(g.feed) || 0;
+          if (i >= g.items.length) continue;
+          if (baseForSelection.length >= MAX_ITEMS) return;
+          if (pushIfNew(baseForSelection, g.items[i])) indices.set(g.feed, i + 1);
+        }
+      }
+      // Passes suivantes: un par tour jusqu'à remplir
+      let still = true;
+      while (still && baseForSelection.length < MAX_ITEMS) {
+        still = false;
+        for (const g of groups) {
+          const i = indices.get(g.feed) || 0;
+          if (i >= g.items.length) continue;
+          if (baseForSelection.length >= MAX_ITEMS) return;
+          if (pushIfNew(baseForSelection, g.items[i])) {
+            indices.set(g.feed, i + 1);
+            still = true;
+          }
+        }
+      }
+    };
+
+    const baseForSelection: typeof items = [];
+    // 1) Remplir avec "aujourd'hui" proportionnellement
+    roundRobinFill(byFeedTodays, 2);
+    // 2) Fallback 72h proportionnellement si besoin
+    if (baseForSelection.length < MAX_ITEMS) {
+      roundRobinFill(byFeedRecent72, 1);
+    }
+    // 3) Fallback global (allSorted) pour terminer si besoin
+    if (baseForSelection.length < MAX_ITEMS) {
+      for (const it of allSorted) {
+        if (baseForSelection.length >= MAX_ITEMS) break;
+        pushIfNew(baseForSelection, it);
+      }
+    }
     const isYouTube = (u?: string) => {
       if (!u) return false;
       try {
@@ -140,17 +241,24 @@ export async function POST(req: NextRequest) {
       } catch { return false; }
     };
     const MAX_YT = 4;
-    const yt = todaysSorted.filter((x) => isYouTube(x.link));
-    const nonYt = todaysSorted.filter((x) => !isYouTube(x.link));
+    // Inclure des vidéos même si très peu d'articles
+    const yt = baseForSelection.filter((x) => isYouTube(x.link));
+    const nonYt = baseForSelection.filter((x) => !isYouTube(x.link));
     // Interleave: 2 articles puis 1 vidéo (si dispo), pour éviter un flux composé uniquement de vidéos
     const mergedPrioritized: typeof items = [];
     let iArticle = 0;
     let iYt = 0;
     let ytUsed = 0;
     while (mergedPrioritized.length < MAX_ITEMS && (iArticle < nonYt.length || iYt < yt.length)) {
-      // Ajouter jusqu'à 2 articles
+      // Ajouter jusqu'à 2 articles si possible, sinon prendre 1 vidéo
+      let addedArticles = 0;
       for (let k = 0; k < 2 && mergedPrioritized.length < MAX_ITEMS && iArticle < nonYt.length; k++) {
         mergedPrioritized.push(nonYt[iArticle++]);
+        addedArticles++;
+      }
+      if (addedArticles === 0 && mergedPrioritized.length < MAX_ITEMS && iYt < yt.length && ytUsed < MAX_YT) {
+        mergedPrioritized.push(yt[iYt++]);
+        ytUsed++;
       }
       // Puis 1 vidéo si on n'a pas dépassé le plafond YouTube
       if (mergedPrioritized.length < MAX_ITEMS && iYt < yt.length && ytUsed < MAX_YT) {
@@ -167,8 +275,8 @@ export async function POST(req: NextRequest) {
 
     // Compléter les images manquantes via OG (quota limité)
     let toComplete = limited.filter((x) => !x.image && x.link);
-    // En mode rapide, ne compléter que quelques images (24 max) si demandé
-    if (fast) toComplete = toComplete.slice(0, 24);
+    // En mode rapide, n'enrichir que quelques items pour réduire le temps
+    if (fast) toComplete = toComplete.slice(0, 12);
     if ((withImages || !fast) && Date.now() - startedAt < timeBudgetMs - 1500 && toComplete.length) {
       // 1ère passe: OG rapide
       await Promise.allSettled(

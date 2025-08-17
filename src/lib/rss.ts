@@ -33,16 +33,30 @@ const parser = new Parser({
   // RSS/Atom/Generic XML support is handled by rss-parser internally
 });
 
-export async function parseFeed(url: string): Promise<ParsedFeed> {
+type ParseFeedOptions = {
+  fast?: boolean;
+  maxItems?: number;
+  timeoutMs?: number;
+  enrichOg?: boolean; // for advanced control; overrides fast behavior
+};
+
+export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<ParsedFeed> {
   const now = Date.now();
-  const cached = feedCache.get(url);
+  const isFast = opts?.fast === true;
+  const maxItems = typeof opts?.maxItems === "number" && opts!.maxItems! > 0 ? Math.floor(opts!.maxItems!) : (isFast ? 20 : 60);
+  const enrichOg = typeof opts?.enrichOg === "boolean" ? opts.enrichOg : !isFast;
+  const timeoutMs = typeof opts?.timeoutMs === "number" && opts!.timeoutMs! > 0 ? Math.floor(opts!.timeoutMs!) : (isFast ? 4000 : 10000);
+
+  const cacheKey = `${url}#${isFast ? "fast" : "full"}#${maxItems}`;
+  const cached = feedCache.get(cacheKey);
   if (cached && now - cached.savedAt < FEED_SSR_TTL_MS) {
     return cached.data;
   }
 
   let feed;
   try {
-    feed = await parser.parseURL(url);
+    const parserUsed = timeoutMs !== 10000 ? new Parser({ timeout: timeoutMs }) : parser;
+    feed = await parserUsed.parseURL(url);
   } catch (err) {
     if (cached && now - cached.savedAt < FEED_SSR_STALE_MAX_MS) {
       // Fallback en cas d'erreur: retourner des données un peu plus anciennes
@@ -51,8 +65,9 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
     throw err;
   }
 
+  const rawItems = (feed.items || []).slice(0, maxItems);
   const enrichedItems: ParsedItem[] = await Promise.all(
-    (feed.items || []).map(async (item, index) => {
+    rawItems.map(async (item, index) => {
       const anyItem = item as Record<string, unknown>;
       const html = (anyItem["content:encoded"] as string | undefined) || (anyItem.content as string | undefined) || "";
 
@@ -63,9 +78,11 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
         extractImageFromItunes(anyItem);
 
       let ogMeta: OgMetadata | null = null;
-      if (!image && item.link) {
-        ogMeta = await fetchOgMetadata(item.link).catch(() => null);
-        image = ogMeta?.image || null;
+      if (enrichOg) {
+        if (!image && item.link) {
+          ogMeta = await fetchOgMetadata(item.link).catch(() => null);
+          image = ogMeta?.image || null;
+        }
       }
 
       // Fallback spécifique YouTube: construire l'URL de miniature si nécessaire
@@ -78,21 +95,23 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
 
       // Build description/snippet with robust fallbacks (e.g., Product Hunt)
       let snippet = item.contentSnippet || stripHtml(html).slice(0, 240);
-      try {
-        const linkHost = item.link ? new URL(item.link).hostname : "";
-        const needsEnhance = !snippet || snippet.length < 30 || /producthunt\.com$/.test(linkHost) || /(^|\.)producthunt\.com$/.test(linkHost);
-        if (needsEnhance && item.link) {
-          if (!ogMeta) ogMeta = await fetchOgMetadata(item.link).catch(() => null);
-          const ogDesc = ogMeta?.description || "";
-          if (ogDesc && ogDesc.length > (snippet?.length || 0)) {
-            snippet = ogDesc.slice(0, 280).trim();
-          } else if (!snippet) {
-            // fallback to first paragraph from the fetched HTML
-            const para = ogMeta?.firstParagraph;
-            if (para) snippet = para.slice(0, 280).trim();
+      if (enrichOg) {
+        try {
+          const linkHost = item.link ? new URL(item.link).hostname : "";
+          const needsEnhance = !snippet || snippet.length < 30 || /producthunt\.com$/.test(linkHost) || /(^|\.)producthunt\.com$/.test(linkHost);
+          if (needsEnhance && item.link) {
+            if (!ogMeta) ogMeta = await fetchOgMetadata(item.link).catch(() => null);
+            const ogDesc = ogMeta?.description || "";
+            if (ogDesc && ogDesc.length > (snippet?.length || 0)) {
+              snippet = ogDesc.slice(0, 280).trim();
+            } else if (!snippet) {
+              // fallback to first paragraph from the fetched HTML
+              const para = ogMeta?.firstParagraph;
+              if (para) snippet = para.slice(0, 280).trim();
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       return {
         id,
@@ -113,7 +132,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
   };
 
   // Mettre en cache la réponse enrichie
-  feedCache.set(url, { savedAt: Date.now(), data: result });
+  feedCache.set(cacheKey, { savedAt: Date.now(), data: result });
 
   return result;
 }

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ items: [] }, { status: 200 });
     }
 
-    const results = await Promise.allSettled(feeds.map((url: string) => parseFeed(url)));
+    const results = await Promise.allSettled(feeds.map((url: string) => parseFeed(url, { fast: true, maxItems: 60, timeoutMs: 5000 })));
     const mergedItems: ParsedItem[] = results.flatMap((res) => (res.status === "fulfilled" ? res.value.items : []));
     // Tri par date décroissante
     mergedItems.sort((a, b) => {

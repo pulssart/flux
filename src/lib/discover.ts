@@ -102,7 +102,7 @@ export async function discoverFeedOrThrow(inputUrl: string, overallTimeoutMs = 2
       const elapsed = Date.now() - start;
       const remaining = Math.max(3000, overallTimeoutMs - elapsed);
       try {
-        const parsed = await withTimeout(parseFeed(url), remaining);
+        const parsed = await withTimeout(parseFeed(url, { fast: true, maxItems: 40, timeoutMs: Math.min(remaining, 5000) }), remaining);
         if (parsed.items.length > 0) {
           return { feedUrl: url, title: parsed.title };
         }
