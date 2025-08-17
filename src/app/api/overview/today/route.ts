@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 import { youtubeThumbnailFromLink } from "@/lib/rss";
+import { parseFeed } from "@/lib/rss";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,8 +36,8 @@ export async function POST(req: NextRequest) {
     const clientEnd = typeof body.endMs === "number" ? Number(body.endMs) : null;
     const thresholdMs = clientStart && Number.isFinite(clientStart) ? clientStart : (nowMs - 24 * 60 * 60 * 1000);
 
-    // Parser rapide sans enrichissement OG (plus performant)
-    // Mode rapide pour éviter les timeouts sur l'hébergement (fonction serverless ~10s)
+    // Parser: privilégier notre parseur central (aligne avec FeedGrid) pour une meilleure robustesse
+    // On garde une instance rss-parser uniquement pour compat legacy si besoin
     const parser = new Parser({ timeout: fast ? 1500 : 2000 });
     const isYouTubeShort = (u?: string) => {
       if (!u) return false;
@@ -92,33 +93,29 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < maxFeeds; i += chunkSize) {
       if (Date.now() - startedAt > timeBudgetMs) break;
       const slice = feedsOrdered.slice(i, i + chunkSize);
-      const results = await Promise.allSettled(slice.map((u) => parser.parseURL(u)));
+      const results = await Promise.allSettled(slice.map((u) => parseFeed(u)));
       for (const res of results) {
         if (res.status !== "fulfilled") continue;
-        for (let idx = 0; idx < (res.value.items || []).length; idx++) {
-           const it = res.value.items[idx] as Parser.Item;
+        const list = res.value.items || [];
+        for (let idx = 0; idx < list.length; idx++) {
+          const it = list[idx];
           const title = String(it.title || "Sans titre");
           const link = typeof it.link === "string" ? it.link : undefined;
-          // Exclure YouTube Shorts (réels/verticales)
           if (link && isYouTubeShort(link)) continue;
-          const pubDate = (it.isoDate as string) || (it.pubDate as string) || undefined;
-           const contentEncoded = (it as unknown as Record<string, unknown>)["content:encoded"] as unknown;
-           const contentStr = typeof it.content === "string" ? it.content : (typeof contentEncoded === "string" ? contentEncoded : "");
-           const contentSnippet = String(it.contentSnippet || stripHtml(contentStr)).slice(0, 420);
-            // Exclure Shorts YouTube (URL ou marqueur titre/snippet)
-            if (link && (isYouTubeShort(link) || hasShortsMarker(title, contentSnippet))) continue;
-            let image = extractImageFromEnclosure(it);
-            if (!image && link) {
-              const yt = youtubeThumbnailFromLink(link);
-              if (yt) image = yt;
-            }
-            items.push({ title, link, pubDate, contentSnippet, image });
-           // Limiter le coût: ne pas parcourir trop d'items par feed
-           if (idx >= 20) break;
-           if (Date.now() - startedAt > timeBudgetMs) break;
+          const pubDate = it.pubDate;
+          const contentSnippet = (it.contentSnippet || "").toString().slice(0, 420);
+          if (link && (isYouTubeShort(link) || hasShortsMarker(title, contentSnippet))) continue;
+          let image = it.image;
+          if (!image && link) {
+            const yt = youtubeThumbnailFromLink(link);
+            if (yt) image = yt;
+          }
+          items.push({ title, link, pubDate, contentSnippet, image: image || undefined });
+          if (idx >= 50) break; // ne pas sur-consommer
+          if (Date.now() - startedAt > timeBudgetMs) break;
         }
       }
-      if (items.length >= 120) break; // sécurité
+      if (items.length >= 200) break; // sécurité
       if (Date.now() - startedAt > timeBudgetMs) break;
     }
     // Dédoublonner pour éviter répétitions d'articles identiques entre flux (mirror, multi-tags, etc.)
