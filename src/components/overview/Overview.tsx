@@ -254,7 +254,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   function proxyImage(url?: string | null): string | null {
     if (!url) return null;
     try {
-      const key = btoa(url).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      // Convertir les URLs ProductHunt qui commencent par // en https://
+      const fullUrl = url.startsWith("//") ? `https:${url}` : url;
+      const key = btoa(fullUrl).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
       return `/api/proxy-image/${key}`;
     } catch {
       return null;
@@ -449,8 +451,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                 try {
                   if (it.image) {
                     const url = new URL(it.image);
-                    if (url.protocol === "http:" || url.protocol === "https:") {
-                      validImage = it.image;
+                    // Accepter les URLs ProductHunt qui commencent par //
+                    if (url.protocol === "http:" || url.protocol === "https:" || (url.protocol === ":" && it.image.startsWith("//"))) {
+                      validImage = it.image.startsWith("//") ? `https:${it.image}` : it.image;
                     }
                   }
                 } catch {}
@@ -687,8 +690,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
               try {
                 if (j?.image) {
                   const url = new URL(j.image);
-                  if (url.protocol === "http:" || url.protocol === "https:") {
-                    validImage = j.image;
+                  // Accepter les URLs ProductHunt qui commencent par //
+                  if (url.protocol === "http:" || url.protocol === "https:" || (url.protocol === ":" && j.image.startsWith("//"))) {
+                    validImage = j.image.startsWith("//") ? `https:${j.image}` : j.image;
                   }
                 }
               } catch {}
