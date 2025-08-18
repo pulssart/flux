@@ -1124,6 +1124,8 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                   />
                   {/* Overlay adaptatif selon luminance */}
                   <div className="absolute inset-0 z-[2]" style={{ background: featuredOverlayCss || "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }} aria-hidden="true" />
+                  {/* Overlay constant de 7% */}
+                  <div className="absolute inset-0 z-[2] bg-black/[0.07]" aria-hidden="true" />
                   <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
                     <div className={`text-xs mb-2 ${subTextClass} flex items-center gap-2`}>
                       {!isYouTubeUrl(featured.link) && featured.link && (
@@ -1371,7 +1373,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     }}
                     aria-hidden="true"
                   />
-                  <div className="absolute inset-0 z-[0]" aria-hidden="true" />
+                  <div className="absolute inset-0 z-[0] bg-black/[0.07]" aria-hidden="true" />
                   <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[2]">
                     <div className="text-xs mb-2 text-white/80 drop-shadow">
                       {lastRowFocus.pubDate ? format(new Date(lastRowFocus.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
