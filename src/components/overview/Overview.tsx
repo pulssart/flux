@@ -391,47 +391,74 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     if (generatingRef.current) return;
     generatingRef.current = true;
     setGenerating(true);
-    try {
-      console.log("[overview] generate: start", { lang });
-      // Tentative rapide d'abord (pour éviter les timeouts), puis enrichissement en arrière-plan
-      type OverviewItem = { title: string; link: string | null; image: string | null; summary: string; host: string; pubDate: string | null };
-      let j: { html: string; items?: OverviewItem[]; intro?: string } | null = null;
-      try {
-        j = await requestOverview(true, 60000);
-      } catch (e) {
-        console.warn("[overview] fast request failed", e);
-      }
-      // Fallback rapide si échec/timeout
-      if (!j) {
-        try {
-          j = await requestOverview(true, 60000);
-        } catch (e) {
-          console.error("[overview] fast request failed", e);
-          throw e;
-        }
-        // Lancer enrichissement en arrière-plan pour remplacer ensuite
-        (async () => {
           try {
-            const full = await requestOverview(false, 60000);
-            const cleanHtml2 = sanitizeOverviewHtml(full.html, lang, dateTitle);
-            setContent({ html: cleanHtml2, items: full.items, intro: full.intro });
-            try {
-              localStorage.setItem("flux:overview:today", JSON.stringify({ html: cleanHtml2, items: full.items, intro: full.intro, date: new Date().toISOString() }));
-              localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION);
-              setLastUpdated(new Date());
-            } catch {}
-          } catch (e2) {
-            console.warn("[overview] background enrich failed", e2);
-          }
+        console.log("[overview] generate: start", { lang });
+        // Utiliser directement le mode dégradé
+        const feeds = (() => {
+          try {
+            const str = localStorage.getItem("flux:feeds");
+            if (!str) return [] as string[];
+            const arr = JSON.parse(str) as { url: string }[];
+            return arr.map((x) => x.url).filter(Boolean);
+          } catch { return [] as string[]; }
         })();
-      }
-      const cleanHtmlFinal = sanitizeOverviewHtml(j!.html, lang, dateTitle);
-      setContent({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro });
-      try {
-        localStorage.setItem("flux:overview:today", JSON.stringify({ html: cleanHtmlFinal, items: j!.items, intro: j!.intro, date: new Date().toISOString() }));
-        localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION);
-        setLastUpdated(new Date());
-      } catch {}
+        
+        if (feeds.length) {
+          const controller = new AbortController();
+          const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 15000);
+          const res = await fetch("/api/feeds/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feeds }),
+            signal: controller.signal,
+          });
+          clearTimeout(t);
+          if (res.ok) {
+            const j = (await res.json()) as { items: Array<{ title: string; link?: string | null; image?: string | null; contentSnippet?: string | null; pubDate?: string | null }> };
+            const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+            const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+            const items = (j.items || [])
+              .filter((it) => {
+                if (!it.pubDate) return false;
+                const tms = +new Date(it.pubDate);
+                return Number.isFinite(tms) && tms >= +todayStart && tms <= +todayEnd;
+              })
+              .sort((a, b) => {
+                // Prioriser les vidéos YouTube
+                const aIsYt = isYouTubeUrl(a.link);
+                const bIsYt = isYouTubeUrl(b.link);
+                if (aIsYt && !bIsYt) return -1;
+                if (!aIsYt && bIsYt) return 1;
+                return (+new Date(b.pubDate || 0)) - (+new Date(a.pubDate || 0));
+              })
+              .slice(0, 30)
+              .map((it) => {
+                let host = ""; try { if (it.link) host = new URL(it.link).hostname.replace(/^www\./, ""); } catch {}
+                // Vérifier que l'image est une URL valide
+                let validImage = null;
+                try {
+                  if (it.image) {
+                    const url = new URL(it.image);
+                    if (url.protocol === "http:" || url.protocol === "https:") {
+                      validImage = it.image;
+                    }
+                  }
+                } catch {}
+                return { title: it.title, link: it.link || null, image: validImage, summary: it.contentSnippet || "", host, pubDate: it.pubDate || null };
+              });
+            if (items.length) {
+              setContent({ html: "", items });
+              try {
+                localStorage.setItem("flux:overview:today", JSON.stringify({ html: "", items, date: new Date().toISOString() }));
+                localStorage.setItem("flux:overview:ver", OVERVIEW_RENDER_VERSION);
+                setLastUpdated(new Date());
+              } catch {}
+              toast.success(lang === "fr" ? "Flux mis à jour" : "Feed updated");
+              return;
+            }
+          }
+        }
+        toast.error(lang === "fr" ? "Aucun flux disponible" : "No feeds available");
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === "AbortError") {
         toast.error("Temps dépassé. Réessaie dans un instant.");
@@ -631,7 +658,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   // Compléter côté client les images manquantes (evite le budget côté serveur)
   useEffect(() => {
     if (!content?.items || fillingImagesRef.current) return;
-    const missing = content.items.filter((it) => !it.image && it.link);
+    const missing = content.items.filter((it) => !it.image && it.link && !isYouTubeUrl(it.link));
     if (!missing.length) return;
     fillingImagesRef.current = true;
     (async () => {
@@ -645,16 +672,32 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
               const r = await fetch(`/api/og-image?u=${encodeURIComponent(it.link as string)}`);
               if (!r.ok) return null;
               const j = (await r.json()) as { image?: string | null };
-              return { link: it.link, image: j?.image || null } as { link: string | null; image: string | null };
+              // Vérifier que l'image est une URL valide
+              let validImage = null;
+              try {
+                if (j?.image) {
+                  const url = new URL(j.image);
+                  if (url.protocol === "http:" || url.protocol === "https:") {
+                    validImage = j.image;
+                  }
+                }
+              } catch {}
+              return { link: it.link, image: validImage } as { link: string | null; image: string | null };
             } catch {
               return null;
             }
           })
         );
         const updates = new Map<string, string>();
+        const seen = new Set<string>();
         for (const res of results) {
           if (res.status === "fulfilled" && res.value && res.value.link && res.value.image) {
-            updates.set(res.value.link, res.value.image);
+            const imageUrl = res.value.image;
+            // Éviter les doublons d'images
+            if (!seen.has(imageUrl)) {
+              updates.set(res.value.link, imageUrl);
+              seen.add(imageUrl);
+            }
           }
         }
         console.log("[overview] client-fill: done", { updated: updates.size });
