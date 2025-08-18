@@ -261,6 +261,16 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     }
   }
 
+  function getFavicon(url?: string | null): string | null {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`;
+    } catch {
+      return null;
+    }
+  }
+
   function isYouTubeUrl(url?: string | null): boolean {
     if (!url) return false;
     try {
@@ -1115,7 +1125,35 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                   {/* Overlay adaptatif selon luminance */}
                   <div className="absolute inset-0 z-[2]" style={{ background: featuredOverlayCss || "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }} aria-hidden="true" />
                   <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
-                    <div className={`text-xs mb-2 ${subTextClass}`}>
+                    <div className={`text-xs mb-2 ${subTextClass} flex items-center gap-2`}>
+                      {!isYouTubeUrl(featured.link) && featured.link && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            try {
+                              const feeds = JSON.parse(localStorage.getItem("flux:feeds") || "[]") as { url: string }[];
+                              const feed = feeds.find(f => {
+                                try {
+                                  const fUrl = new URL(f.url);
+                                  const aUrl = new URL(featured.link as string);
+                                  return fUrl.hostname === aUrl.hostname;
+                                } catch {
+                                  return false;
+                                }
+                              });
+                              if (feed) {
+                                window.dispatchEvent(new CustomEvent("flux:feed:select", { detail: { url: feed.url } }));
+                              }
+                            } catch {}
+                          }}
+                          className="hover:opacity-75 transition-opacity"
+                          title={lang === "fr" ? "Voir le flux source" : "View source feed"}
+                        >
+                          {getFavicon(featured.link) && <img src={getFavicon(featured.link) as string} alt="" className="w-4 h-4" loading="lazy" referrerPolicy="no-referrer" />}
+                        </button>
+                      )}
                       {featured.pubDate ? format(new Date(featured.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
                     <h2 className={`text-2xl md:text-3xl font-semibold leading-tight mb-2 ${textClass}`}>{featured.title}</h2>
@@ -1165,7 +1203,35 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     ) : null}
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      {!isYouTubeUrl(it.link) && it.link && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            try {
+                              const feeds = JSON.parse(localStorage.getItem("flux:feeds") || "[]") as { url: string }[];
+                              const feed = feeds.find(f => {
+                                try {
+                                  const fUrl = new URL(f.url);
+                                  const aUrl = new URL(it.link as string);
+                                  return fUrl.hostname === aUrl.hostname;
+                                } catch {
+                                  return false;
+                                }
+                              });
+                              if (feed) {
+                                window.dispatchEvent(new CustomEvent("flux:feed:select", { detail: { url: feed.url } }));
+                              }
+                            } catch {}
+                          }}
+                          className="hover:opacity-75 transition-opacity"
+                          title={lang === "fr" ? "Voir le flux source" : "View source feed"}
+                        >
+                          {getFavicon(it.link) && <img src={getFavicon(it.link) as string} alt="" className="w-4 h-4" loading="lazy" referrerPolicy="no-referrer" />}
+                        </button>
+                      )}
                       {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
                     <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
@@ -1234,7 +1300,35 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     ) : null}
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      {!isYouTubeUrl(it.link) && it.link && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            try {
+                              const feeds = JSON.parse(localStorage.getItem("flux:feeds") || "[]") as { url: string }[];
+                              const feed = feeds.find(f => {
+                                try {
+                                  const fUrl = new URL(f.url);
+                                  const aUrl = new URL(it.link as string);
+                                  return fUrl.hostname === aUrl.hostname;
+                                } catch {
+                                  return false;
+                                }
+                              });
+                              if (feed) {
+                                window.dispatchEvent(new CustomEvent("flux:feed:select", { detail: { url: feed.url } }));
+                              }
+                            } catch {}
+                          }}
+                          className="hover:opacity-75 transition-opacity"
+                          title={lang === "fr" ? "Voir le flux source" : "View source feed"}
+                        >
+                          {getFavicon(it.link) && <img src={getFavicon(it.link) as string} alt="" className="w-4 h-4" loading="lazy" referrerPolicy="no-referrer" />}
+                        </button>
+                      )}
                       {it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}
                     </div>
                     <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
