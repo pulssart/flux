@@ -1011,7 +1011,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               })()}
             </div>
             <div className="mt-2 flex justify-end">
-              <Button size="sm" variant="outline">{t(lang, "upgrade")}</Button>
+              <Button size="sm" variant="outline" onClick={() => window.location.href = 'mailto:pulssart@gmail.com'}>{t(lang, "feedback")}</Button>
             </div>
           </div>
         </div>

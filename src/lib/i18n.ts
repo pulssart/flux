@@ -120,6 +120,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     aiTokens: "AI tokens",
     tokensRemaining: "restants",
     upgrade: "Améliorer",
+    feedback: "Feedback",
   },
   en: {
     addUrlPlaceholder: "Add an RSS URL…",
@@ -236,6 +237,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     aiTokens: "AI tokens",
     tokensRemaining: "left",
     upgrade: "Upgrade",
+    feedback: "Feedback",
   },
 };
 
