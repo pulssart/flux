@@ -341,6 +341,34 @@ async function fetchOgMetadata(link: string, timeoutMs = 3500): Promise<OgMetada
     const html = await res.text();
     const $ = cheerio.load(html);
 
+    // 1) Essayer d'abord de scrapper une image "héros" dans le contenu (priorité)
+    const pickFrom = ($el: ReturnType<typeof $>) => {
+      const attrs = [
+        $el.attr("src"),
+        $el.attr("data-src"),
+        $el.attr("data-lazy-src"),
+        $el.attr("data-original"),
+        $el.attr("data-image"),
+        $el.attr("data-actualsrc"),
+        $el.attr("data-src-large"),
+      ].filter(Boolean) as string[];
+      const srcset = pickBestFromSrcset($el.attr("srcset") || $el.attr("data-srcset") || null);
+      if (srcset) attrs.push(srcset);
+      const src = attrs.find(Boolean) || null;
+      return src ? resolveUrl(src, link) : null;
+    };
+    let heroImage: string | null = null;
+    try {
+      const heroSel = ".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img, figure.wp-block-image img, article img:first-of-type, main img:first-of-type";
+      const hero = $(heroSel).first();
+      if (hero && hero.length) heroImage = pickFrom(hero);
+      if (!heroImage) {
+        const sourceBest = pickBestFromSrcset($("source[media][srcset], source[media][data-srcset]").first().attr("srcset") || null);
+        if (sourceBest) heroImage = resolveUrl(sourceBest, link);
+      }
+    } catch {}
+
+    // 2) Métadonnées OG/Twitter (secondaire)
     const ogImage =
       $("meta[property='og:image']").attr("content") ||
       $("meta[name='og:image']").attr("content") ||
@@ -378,7 +406,8 @@ async function fetchOgMetadata(link: string, timeoutMs = 3500): Promise<OgMetada
     const firstParagraph = $("main p").first().text().trim() || $("p").first().text().trim() || null;
 
     return {
-      image: ogImage ? resolveUrl(ogImage, link) : null,
+      // Priorité au scrapping direct (héros), sinon OG
+      image: heroImage || (ogImage ? resolveUrl(ogImage, link) : null),
       description: (ogDesc || ldDesc || null)?.toString() || null,
       firstParagraph,
     };
