@@ -110,10 +110,26 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               for (const o of out) { const c = Array.isArray(o?.content) ? o.content : []; for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; } }
               return "";
             })();
-            setSummary(text && text.trim() ? text.trim() : cleaned.slice(0, 800));
-          } else {
-            setSummary(cleaned.slice(0, 800));
+            if (text && text.trim()) { setSummary(text.trim()); return; }
           }
+          // En cas d'échec OpenAI direct, tenter l'API serveur avec la clé fournie
+          try {
+            const srvCtrl = new AbortController();
+            const srvT = setTimeout(() => srvCtrl.abort(), 7000);
+            const srv = await fetch("/api/ai/summarize-tts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: article.link, lang, apiKey, textOnly: true, mode: "structured" }),
+              signal: srvCtrl.signal,
+            }).catch(() => null);
+            clearTimeout(srvT);
+            if (srv && srv.ok) {
+              const sj = await srv.json();
+              const st = (sj?.text as string) || "";
+              if (st && st.trim()) { setSummary(st.trim()); return; }
+            }
+          } catch {}
+          setSummary(cleaned.slice(0, 800));
         } else {
           // Pas de clé: fallback API serveur (peut être partiel mais évite blocage UX)
           const res = await fetch("/api/ai/summarize-tts", {
