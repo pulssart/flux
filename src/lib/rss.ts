@@ -1,5 +1,6 @@
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
+import { extractBestImage, getFaviconUrl } from "./image-extractor";
 
 export type ParsedEnclosure = {
   url?: string;
@@ -72,33 +73,39 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
       const anyItem = item as Record<string, unknown>;
       const html = (anyItem["content:encoded"] as string | undefined) || (anyItem.content as string | undefined) || "";
 
-      let image =
-        extractImageFromHtml(html, item.link) ||
-        extractImageFromEnclosure(item) ||
-        extractImageFromMedia(anyItem) ||
-        extractImageFromItunes(anyItem);
-
-      let ogMeta: OgMetadata | null = null;
-      if (enrichOg) {
-        if (!image && item.link) {
-          ogMeta = await fetchOgMetadata(item.link).catch(() => null);
-          image = ogMeta?.image || null;
-        }
-      } else if (!image && item.link) {
-        // Fast mode: OG rapide pour quelques hôtes connus
+      // Extraire l'image avec notre nouvelle méthode robuste
+      let image = null;
+      
+      // D'abord essayer les sources directes du flux RSS
+      image = extractImageFromEnclosure(item) ||
+              extractImageFromMedia(anyItem) ||
+              extractImageFromItunes(anyItem);
+      
+      // Si pas d'image et qu'on a un lien, utiliser notre extracteur avancé
+      if (!image && item.link) {
         try {
-          const host = new URL(item.link).hostname.replace(/^www\./, "");
-          if (ALWAYS_OG_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) {
-            ogMeta = await fetchOgMetadata(item.link, Math.min(2000, timeoutMs)).catch(() => null);
-            image = ogMeta?.image || image || null;
+          // En mode enrichOg, on fait une extraction complète
+          if (enrichOg) {
+            image = await extractBestImage(item.link, html);
+          } else {
+            // En mode rapide, on ne fait l'extraction que pour certains hôtes
+            const host = new URL(item.link).hostname.replace(/^www\./, "");
+            if (ALWAYS_OG_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) {
+              image = await extractBestImage(item.link, html, Math.min(2000, timeoutMs));
+            }
           }
         } catch {}
       }
-
-      // Fallback spécifique YouTube: construire l'URL de miniature si nécessaire
+      
+      // Fallback YouTube si toujours pas d'image
       if (!image && item.link) {
         const yt = youtubeThumbnailFromLink(item.link);
         if (yt) image = yt;
+      }
+      
+      // Dernier recours : favicon du site
+      if (!image && item.link) {
+        image = getFaviconUrl(item.link);
       }
 
       const id = (item.guid as string) || `${item.link || ""}#${index}`;
