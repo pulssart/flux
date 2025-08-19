@@ -62,9 +62,7 @@ export async function POST(req: NextRequest) {
 
       let summary: string;
       try {
-        summary = mode === "audio"
-          ? await summarizeForAudio(limited, lang, apiKey)
-          : await summarizeStructured(limited, lang, apiKey);
+        summary = await summarizeWithRetries(limited, lang, apiKey, mode);
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -230,7 +228,7 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
 
   // Utiliser l'API Responses pour gpt-5-nano
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), 18000);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
@@ -290,7 +288,7 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
       );
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), 18000);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
@@ -328,6 +326,40 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
   return text.trim();
 }
 
+// Retry wrapper: 3 tentatives, backoff 0.5s/1s/2s, avec réduction de la taille d'entrée
+async function summarizeWithRetries(
+  input: string,
+  lang: string,
+  apiKey: string | undefined,
+  mode: "structured" | "audio"
+): Promise<string> {
+  const attempts = [1, 2, 3];
+  let lastErr: unknown = null;
+  let text = input;
+  for (const n of attempts) {
+    try {
+      const result = mode === "audio" ? await summarizeForAudio(text, lang, apiKey) : await summarizeStructured(text, lang, apiKey);
+      if (result && result.trim()) return result.trim();
+      throw new ApiError(502, "empty-summary");
+    } catch (e: unknown) {
+      lastErr = e;
+      // Si timeout, on réduit l'entrée et on retente
+      const isTimeout = e instanceof ApiError ? e.status === 504 : false;
+      // Réduction progressive: 10k -> 6k -> 3k
+      if (isTimeout || n < attempts.length) {
+        const limits = [10000, 6000, 3000];
+        text = input.slice(0, limits[n] || 3000);
+        await new Promise((r) => setTimeout(r, 500 * n));
+        continue;
+      }
+      throw e;
+    }
+  }
+  // Si tout échoue, re-lancer la dernière erreur (souvent ApiError 504)
+  if (lastErr instanceof ApiError) throw lastErr;
+  throw new ApiError(502, (lastErr as Error)?.message || "summary-failed");
+}
+
 function buildDigestInput(items: { title: string; snippet?: string }[]): string {
   const parts = items.map((it, idx) => {
     const snip = (it.snippet || "").replace(/\s+/g, " ").trim().slice(0, 300);
@@ -346,7 +378,7 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
       : "From a list of today's headlines and snippets, produce a short structured bulletin (4-7 sentences) summarizing key themes in the requested language.";
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), 18000);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
