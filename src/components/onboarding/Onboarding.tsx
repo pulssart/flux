@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLang, t } from "@/lib/i18n";
+import { PERSONAS, type Persona } from "@/lib/personas";
+import { addFeed } from "@/lib/feeds-store";
 
 export function Onboarding() {
   const [lang] = useLang();
@@ -32,11 +34,26 @@ export function Onboarding() {
     try { localStorage.setItem("flux:onboarding:seen", "1"); } catch {}
   }
 
-  const slides: Array<{ title: string; desc: string; videoEmbed?: string }> = [
+  async function selectPersona(persona: Persona) {
+    // Ajouter tous les flux du persona
+    const feeds = PERSONAS[persona].feeds;
+    for (const feed of feeds) {
+      await addFeed(feed.url, feed.title);
+    }
+    // Passer à l'étape suivante
+    setStep((s) => Math.min(slides.length - 1, s + 1));
+  }
+
+  const slides: Array<{ title: string; desc: string; videoEmbed?: string; isPersona?: boolean }> = [
     {
       title: t(lang, "onboardingWelcomeTitle"),
       desc: t(lang, "onboardingWelcomeDesc"),
       videoEmbed: "https://www.youtube-nocookie.com/embed/iTtya8l_ONU?rel=0&modestbranding=1&playsinline=1",
+    },
+    {
+      title: t(lang, "onboardingPersonaTitle"),
+      desc: t(lang, "onboardingPersonaDesc"),
+      isPersona: true,
     },
     {
       title: t(lang, "onboardingAddOrganizeTitle"),
@@ -66,7 +83,19 @@ export function Onboarding() {
           <DialogTitle>{current.title}</DialogTitle>
           <DialogDescription>{current.desc}</DialogDescription>
         </DialogHeader>
-        {current.videoEmbed ? (
+        {current.isPersona ? (
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(Object.entries(PERSONAS) as [Persona, typeof PERSONAS[Persona]][]).map(([key, persona]) => (
+              <div key={key} className="flex flex-col gap-2 p-4 rounded-lg border">
+                <h3 className="text-lg font-semibold">{persona.title[lang]}</h3>
+                <p className="text-sm text-muted-foreground">{persona.description[lang]}</p>
+                <div className="mt-2">
+                  <Button onClick={() => selectPersona(key)}>{t(lang, "onboardingPersonaSelect")}</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : current.videoEmbed ? (
           <div className="mt-3 rounded-xl overflow-hidden bg-black">
             <div className="relative w-full pt-[56.25%]">
               <iframe
@@ -80,7 +109,7 @@ export function Onboarding() {
         ) : null}
         <DialogFooter>
           <div className="w-full flex items-center justify-between">
-            <Button variant="ghost" onClick={finish}>{t(lang, "onboardingSkip")}</Button>
+            <Button variant="ghost" onClick={finish}>{current.isPersona ? t(lang, "onboardingPersonaSkip") : t(lang, "onboardingSkip")}</Button>
             <div className="flex items-center gap-2">
               {step > 0 && (
                 <Button variant="outline" onClick={() => setStep((s) => Math.max(0, s - 1))}>{t(lang, "onboardingBack")}</Button>
