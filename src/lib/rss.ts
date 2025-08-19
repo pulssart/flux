@@ -180,8 +180,8 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
   // 1) Sélecteurs prioritaires (WordPress & co.)
-  // Typage compatible avec versions Cheerio: on caste en Element au point d'usage
-  const pickUrlFromEl = ($el: cheerio.Cheerio<cheerio.Element>): string | null => {
+  // Typage large pour compatibilité Cheerio (évite dépendance à des types non exportés côté build)
+  const pickUrlFromEl = ($el: any): string | null => {
     const attrs = [
       $el.attr("src"),
       $el.attr("data-src"),
@@ -206,7 +206,7 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
     "figure.wp-block-image img",
   ];
   for (const sel of prioritySelectors) {
-    const el = $(sel).first() as unknown as cheerio.Cheerio<cheerio.Element>;
+    const el = $(sel).first();
     if (el && el.length) {
       const u = pickUrlFromEl(el);
       if (u) return u;
@@ -217,7 +217,7 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
   // Essayer differents attributs et variantes lazy
   const candidates: string[] = [];
   $("img").each((_, el) => {
-    const $el = $(el) as unknown as cheerio.Cheerio<cheerio.Element>;
+    const $el = $(el);
     const u = pickUrlFromEl($el);
     if (u) candidates.push(u);
   });
