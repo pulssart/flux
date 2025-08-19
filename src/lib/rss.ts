@@ -179,6 +179,28 @@ function normalizeImageUrl(u?: string | null): string | null {
 function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
+  // Prioritaire: WordPress featured image
+  try {
+    const featured = $(
+      ".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img"
+    ).first();
+    if (featured && featured.length) {
+      const attrs = [
+        featured.attr("src"),
+        featured.attr("data-src"),
+        featured.attr("data-lazy-src"),
+        featured.attr("data-original"),
+        featured.attr("data-image"),
+        featured.attr("data-actualsrc"),
+        featured.attr("data-src-large"),
+      ].filter(Boolean) as string[];
+      const srcset = pickBestFromSrcset(featured.attr("srcset") || featured.attr("data-srcset") || null);
+      if (srcset) attrs.push(srcset);
+      const src = attrs.find(Boolean) || null;
+      const normalized = normalizeImageUrl(src);
+      if (normalized) return resolveUrl(normalized, baseLink);
+    }
+  } catch {}
   // Essayer differents attributs et variantes lazy
   const candidates: string[] = [];
   $("img").each((_, el) => {
