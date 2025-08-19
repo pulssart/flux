@@ -31,6 +31,34 @@ type Article = {
   feedTitle?: string;
 };
 
+// ---------- Favicons helpers (portée globale du fichier) ----------
+function getFaviconUrl(u?: string | null): string | null {
+  if (!u) return null;
+  try {
+    const { hostname } = new URL(u);
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+  } catch {
+    return null;
+  }
+}
+
+function FaviconInline({ url, size = 16, className }: { url?: string; size?: number; className?: string }) {
+  const [ok, setOk] = useState(true);
+  const src = getFaviconUrl(url);
+  if (!src || !ok) return <span className={`inline-block rounded-sm bg-foreground/10`} style={{ width: size, height: size }} />;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      className={className || "inline-block rounded-sm object-contain"}
+      referrerPolicy="no-referrer"
+      onError={() => setOk(false)}
+    />
+  );
+}
+
 async function fetcher<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
@@ -59,33 +87,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string; image?: string } | null>(null);
 
-  // Favicons helpers (local to this file)
-  function getFaviconUrl(u?: string | null): string | null {
-    if (!u) return null;
-    try {
-      const { hostname } = new URL(u);
-      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
-    } catch {
-      return null;
-    }
-  }
-
-  const FaviconInline = ({ url, size = 16, className }: { url?: string; size?: number; className?: string }) => {
-    const [ok, setOk] = useState(true);
-    const src = getFaviconUrl(url);
-    if (!src || !ok) return <span className={`inline-block rounded-sm bg-foreground/10`} style={{ width: size, height: size }} />;
-    return (
-      <img
-        src={src}
-        alt=""
-        width={size}
-        height={size}
-        className={className || "inline-block rounded-sm object-contain"}
-        referrerPolicy="no-referrer"
-        onError={() => setOk(false)}
-      />
-    );
-  };
+  // (les helpers favicons sont maintenant portés en haut du fichier)
 
   useEffect(() => {
     const on = (e: Event) => {
