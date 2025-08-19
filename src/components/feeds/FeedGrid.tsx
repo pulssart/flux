@@ -141,36 +141,80 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     if (!article.link) return;
     setGeneratingId(article.id);
     try {
-      // 1) Récupération d'un vrai résumé narratif pour l'audio (pas la version structurée du lecteur)
+      // Résumé narratif: privilégier client si clé locale, sinon API serveur
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-      const res = await fetch("/api/ai/summarize-tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, textOnly: true, mode: "audio" }),
-      });
-      const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
-      if (!res.ok) {
-        const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
-        if (res.status === 401) toast.error(t(lang, "openAiMissing"));
-        else if (res.status === 400 || res.status === 422 || res.status === 502) toast.error((errJson?.error || t(lang, "articleExtractFailed")) + stage);
-        else if (res.status >= 500) toast.error((errJson?.error || t(lang, "serverGenError")) + stage);
-        throw new Error((errJson?.error || `Echec génération (${res.status})`) + stage);
+      let narrative = "";
+      if (apiKey) {
+        // Client-first: extraire article puis résumer via OpenAI directement
+        const art = await fetch("/api/article", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: article.link }),
+        }).then(r => r.ok ? r.json() : Promise.reject(new Error("article-fail"))) as { contentHtml?: string };
+        const html = (art?.contentHtml || "").toString();
+        const tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        const base = tmp.textContent || tmp.innerText || "";
+        const cleaned = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+        const prompt = lang === "fr"
+          ? "Nettoie et écris un RÉSUMÉ NARRATIF audio en 6-10 phrases, fluide, sans puces, sans emoji.\n\n"
+          : "Write a NARRATIVE SUMMARY for audio in 6–10 sentences, fluent, no bullets, no emojis.\n\n";
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 10000);
+        const aiRes = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: "gpt-5-nano", input: `${prompt}${cleaned}` }),
+          signal: ctrl.signal,
+        }).catch(() => null);
+        clearTimeout(t);
+        if (aiRes && aiRes.ok) {
+          const j = await aiRes.json();
+          const text = (() => {
+            const ot = j?.output_text; if (typeof ot === "string" && ot.trim()) return ot;
+            const out = Array.isArray(j?.output) ? j.output : [];
+            for (const o of out) { const c = Array.isArray(o?.content) ? o.content : []; for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; } }
+            return "";
+          })();
+          narrative = text && text.trim() ? text.trim() : cleaned.slice(0, 800);
+        } else {
+          narrative = cleaned.slice(0, 800);
+        }
+      } else {
+        // Secours: API serveur texte-only
+        const res = await fetch("/api/ai/summarize-tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: article.link, lang, textOnly: true, mode: "audio" }),
+        });
+        const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
+        if (!res.ok) {
+          const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
+          if (res.status === 401) toast.error(t(lang, "openAiMissing"));
+          else if (res.status === 400 || res.status === 422 || res.status === 502) toast.error((errJson?.error || t(lang, "articleExtractFailed")) + stage);
+          else if (res.status >= 500) toast.error((errJson?.error || t(lang, "serverGenError")) + stage);
+          throw new Error((errJson?.error || `Echec génération (${res.status})`) + stage);
+        }
+        const json = (await res.json()) as { text: string };
+        narrative = json.text || "";
       }
-      const json = (await res.json()) as { text: string };
 
-      // 2) Synthèse vocale côté client (évite les timeouts Netlify)
+      // Synthèse vocale (via /api/tts) — toujours côté client
+      if (!apiKey) {
+        try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+      }
       if (!apiKey) {
         toast.error(t(lang, "openAiMissing"));
         return;
       }
       const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
       const controller = new AbortController();
-      const tTimeout = setTimeout(() => controller.abort(), 26000);
+      const tTimeout = setTimeout(() => controller.abort(), 20000);
       const ttsRes = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: json.text, lang, apiKey, voice }),
+        body: JSON.stringify({ text: narrative, lang, apiKey, voice }),
         signal: controller.signal,
       });
       clearTimeout(tTimeout);
@@ -181,9 +225,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       const ttsJson = (await ttsRes.json()) as { audio: string };
       const blob = base64ToBlob(ttsJson.audio, "audio/mpeg");
       const url = URL.createObjectURL(blob);
-      if (audioEl) {
-        try { audioEl.pause(); } catch {}
-      }
+      if (audioEl) { try { audioEl.pause(); } catch {} }
       const audio = new Audio(url);
       setAudioEl(audio);
       setPlayingId(article.id);
@@ -195,7 +237,6 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       toast.success(t(lang, "playbackStarted"));
     } catch (e) {
       console.error(e);
-      // les toasts d'erreur sont gérés ci-dessus
     } finally {
       setGeneratingId((gid) => (gid === article.id ? null : gid));
     }
