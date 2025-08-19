@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Budget temps strict pour éviter 504 Netlify
-    const REQUEST_BUDGET_MS = 8000;
+    // Budget global un peu plus large pour laisser une vraie chance au modèle
+    const REQUEST_BUDGET_MS = 12000;
     const startedAt = Date.now();
     const timeLeft = () => Math.max(600, REQUEST_BUDGET_MS - (Date.now() - startedAt));
     const traceId = getTraceId(req);
@@ -263,7 +264,7 @@ function extractMainText(html: string): string {
   return best;
 }
 
-async function summarizeStructured(input: string, lang: string, clientKey?: string): Promise<string> {
+async function summarizeStructured(input: string, lang: string, clientKey?: string, timeoutMs = 7000): Promise<string> {
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
@@ -292,7 +293,7 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
 
   // Utiliser l'API Responses pour gpt-5-nano
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 7000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
@@ -330,7 +331,7 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
   return text.trim();
 }
 
-async function summarizeForAudio(input: string, lang: string, clientKey?: string): Promise<string> {
+async function summarizeForAudio(input: string, lang: string, clientKey?: string, timeoutMs = 7000): Promise<string> {
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
@@ -352,7 +353,7 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
       );
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 7000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
@@ -404,11 +405,11 @@ async function summarizeWithRetries(
   let text = input;
   for (const n of attempts) {
     try {
-      const perTry = typeof budgetMs === "number" ? Math.max(2000, Math.floor(budgetMs / (attempts.length + 1 - n))) : 10000;
+      const perTry = typeof budgetMs === "number" ? Math.max(2500, Math.floor(budgetMs / (attempts.length + 1 - n))) : 9000;
       logEvent(traceId || "", "summary.attempt", { attempt: n, textLength: text.length, mode, lang, budgetMs: perTry });
       const result = mode === "audio"
-        ? await summarizeForAudio(text, lang, apiKey)
-        : await summarizeStructured(text, lang, apiKey);
+        ? await summarizeForAudio(text, lang, apiKey, perTry)
+        : await summarizeStructured(text, lang, apiKey, perTry);
       if (result && result.trim()) return result.trim();
       throw new ApiError(502, "empty-summary");
     } catch (e: unknown) {
