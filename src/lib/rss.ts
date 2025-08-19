@@ -179,10 +179,8 @@ function normalizeImageUrl(u?: string | null): string | null {
 function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
-  // Essayer differents attributs et variantes lazy
-  const candidates: string[] = [];
-  $("img").each((_, el) => {
-    const $el = $(el);
+  // 1) Sélecteurs prioritaires (WordPress & co.)
+  const pickUrlFromEl = ($el: cheerio.Cheerio<any>): string | null => {
     const attrs = [
       $el.attr("src"),
       $el.attr("data-src"),
@@ -194,7 +192,33 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
     ].filter(Boolean) as string[];
     const srcset = pickBestFromSrcset($el.attr("srcset") || $el.attr("data-srcset") || null);
     if (srcset) attrs.push(srcset);
-    candidates.push(...attrs);
+    const src = attrs.find(Boolean) || null;
+    const normalized = normalizeImageUrl(src);
+    return normalized ? resolveUrl(normalized, baseLink) : null;
+  };
+
+  const prioritySelectors = [
+    ".wp-block-post-featured-image img",
+    ".wp-post-image",
+    ".post-thumbnail img",
+    ".featured-image img",
+    "figure.wp-block-image img",
+  ];
+  for (const sel of prioritySelectors) {
+    const el = $(sel).first();
+    if (el && el.length) {
+      const u = pickUrlFromEl(el);
+      if (u) return u;
+    }
+  }
+
+  // 2) Balayage générique de toutes les images (lazy attrs, srcset, picture/source)
+  // Essayer differents attributs et variantes lazy
+  const candidates: string[] = [];
+  $("img").each((_, el) => {
+    const $el = $(el);
+    const u = pickUrlFromEl($el);
+    if (u) candidates.push(u);
   });
   // Prendre aussi <source srcset> dans <picture>
   $("picture source").each((_, el) => {
