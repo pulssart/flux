@@ -30,11 +30,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Clé OpenAI manquante. Renseignez-la dans Réglages." }, { status: 401 });
     }
 
+    // Budget temps strict pour éviter 504 Netlify
+    const REQUEST_BUDGET_MS = 9000;
+    const startedAt = Date.now();
+    const timeLeft = () => Math.max(600, REQUEST_BUDGET_MS - (Date.now() - startedAt));
+
     // Branche 1: article unique depuis une URL (comportement existant)
     if (url && typeof url === "string") {
       let html: string;
       try {
-        html = await fetchWithTimeout(url, 12000);
+        html = await fetchWithTimeout(url, Math.min(4500, timeLeft() - 500));
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         return NextResponse.json(
@@ -62,14 +67,9 @@ export async function POST(req: NextRequest) {
 
       let summary: string;
       try {
-        summary = await summarizeWithRetries(limited, lang, apiKey, mode);
+        summary = await summarizeWithRetries(limited, lang, apiKey, mode, timeLeft());
       } catch (e: unknown) {
-        if (e instanceof ApiError) {
-          return NextResponse.json(
-            { error: e.message, stage: "summary" },
-            { status: e.status }
-          );
-        }
+        // Quel que soit l'échec, retourner un fallback texte pour éviter 504
         const message = e instanceof Error ? e.message : String(e);
         // Fallback minimal: tronquer le contenu nettoyé si le modèle échoue
         const fallback = limited.slice(0, 800);
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, 20000);
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, Math.min(3000, timeLeft()));
         return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
       } catch (e: unknown) {
         // Fallback: retourner le texte même si la synthèse audio échoue/timeout
