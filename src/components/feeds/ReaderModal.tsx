@@ -62,8 +62,8 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   useEffect(() => {
     if (!open || !article?.link) return;
     if (!tryConsumeToken()) {
-      toast.error(lang === "fr" ? "Plus de tokens aujourd'hui." : "No tokens left today.");
-      return;
+      // Continuer malgré l'absence de tokens (mode illimité via clé locale)
+      try { toast.error(lang === "fr" ? "Plus de tokens aujourd'hui (mode illimité avec votre clé)." : "No tokens left today (using your API key anyway)." ); } catch {}
     }
     setLoading(true);
     setSummary("");
@@ -286,8 +286,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               disabled={xLoading}
               onClick={async () => {
                 if (!tryConsumeToken()) {
-                  toast.error(lang === "fr" ? "Plus de tokens aujourd'hui." : "No tokens left today.");
-                  return;
+                  try { toast.error(lang === "fr" ? "Plus de tokens aujourd'hui (mode illimité avec votre clé)." : "No tokens left today (using your API key anyway)." ); } catch {}
                 }
                 if (!article?.link) return;
                 setXLoading(true);

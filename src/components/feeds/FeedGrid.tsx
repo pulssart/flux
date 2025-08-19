@@ -204,10 +204,9 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       if (!apiKey) {
         try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
       }
-      if (!apiKey) {
-        toast.error(t(lang, "openAiMissing"));
-        return;
-      }
+      // Même si pas de tokens, on tente avec la clé si dispo
+      if (!apiKey) { try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {} }
+      if (!apiKey) { toast.error(t(lang, "openAiMissing")); return; }
       const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
       const controller = new AbortController();
       const tTimeout = setTimeout(() => controller.abort(), 20000);
