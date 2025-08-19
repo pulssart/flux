@@ -54,6 +54,10 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
     "lefigaro.fr",
     "techcrunch.com",
     "arstechnica.com",
+    // OpenAI News/Blog: leur image n'est pas toujours incluse dans le contenu RSS
+    // et se trouve souvent dans un <img data-nimg="fill"> avec srcset webp
+    // Ex: https://openai.com/fr-FR/news/
+    "openai.com",
   ]; // rapide OG même en fast (inclut TechCrunch)
 
   const cacheKey = `${url}#${isFast ? "fast" : "full"}#${maxItems}`;
@@ -377,7 +381,22 @@ async function fetchOgMetadata(link: string, timeoutMs = 3500): Promise<OgMetada
     };
     let heroImage: string | null = null;
     try {
-      const heroSel = ".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img, figure.wp-block-image img, article img:first-of-type, main img:first-of-type";
+      // Étendre la recherche d'image héro pour couvrir les sites Next.js (OpenAI)
+      // qui utilisent <img data-nimg="fill" class="object-cover object-center" ...>
+      const heroSel = [
+        ".wp-block-post-featured-image img",
+        ".wp-post-image",
+        ".post-thumbnail img",
+        ".featured-image img",
+        "figure.wp-block-image img",
+        "article img:first-of-type",
+        "main img:first-of-type",
+        // Ciblages supplémentaires utiles pour openai.com
+        "img[data-nimg]",
+        "img.object-cover",
+        "header img",
+        "div[style*=aspect-ratio] img"
+      ].join(", ");
       const hero = $(heroSel).first();
       if (hero && hero.length) heroImage = pickFrom(hero);
       if (!heroImage) {
