@@ -117,7 +117,11 @@ export async function POST(req: NextRequest) {
         // Quel que soit l'échec, retourner un fallback texte pour éviter 504
         const message = e instanceof Error ? e.message : String(e);
         logEvent(traceId, "summary.error", { message, timeLeft: timeLeft() });
-        // Fallback minimal: tronquer le contenu nettoyé si le modèle échoue
+        // Si textOnly, ne renvoyer AUCUN fallback: on veut voir l'erreur et diagnostiquer
+        if (textOnly) {
+          return NextResponse.json({ error: message, stage: "summary", traceId }, { status: 502, headers: { "x-trace-id": traceId } });
+        }
+        // Sinon (mode audio), fallback minimal pour ne pas casser l'UX audio
         const fallback = limited.slice(0, 800);
         return NextResponse.json({ text: fallback, partial: true, reason: "summary-fallback", error: message, traceId }, { status: 200, headers: { "x-trace-id": traceId } });
       }
