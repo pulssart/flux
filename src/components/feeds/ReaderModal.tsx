@@ -28,6 +28,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
   const [xLoading, setXLoading] = useState(false);
   const [xText, setXText] = useState("");
   const [xStyle, setXStyle] = useState<string>("casual");
+  const [traceId, setTraceId] = useState<string>("");
 
   function tryConsumeToken(): boolean {
     try {
@@ -115,7 +116,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
           // En cas d'échec OpenAI direct, tenter l'API serveur avec la clé fournie
           try {
             const srvCtrl = new AbortController();
-            const srvT = setTimeout(() => srvCtrl.abort(), 7000);
+            const srvT = setTimeout(() => srvCtrl.abort(), 9000);
             const srv = await fetch("/api/ai/summarize-tts", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -123,10 +124,21 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               signal: srvCtrl.signal,
             }).catch(() => null);
             clearTimeout(srvT);
+            try {
+              const tid = srv?.headers?.get("x-trace-id") || "";
+              if (tid) { setTraceId(tid); try { console.info("[summarize-tts] traceId", tid, { source: "client->server(apiKey)" }); } catch {} }
+            } catch {}
             if (srv && srv.ok) {
               const sj = await srv.json();
+              try {
+                if (!traceId && typeof sj?.traceId === "string" && sj.traceId) {
+                  setTraceId(sj.traceId);
+                  try { console.info("[summarize-tts] traceId", sj.traceId, { source: "body" }); } catch {}
+                }
+              } catch {}
               const st = (sj?.text as string) || "";
-              if (st && st.trim()) { setSummary(st.trim()); return; }
+              try { console.info("[summarize-tts] received text", { len: st?.length || 0, empty: !st }); } catch {}
+              if (st && st.trim()) { setSummary(st.trim()); try { console.info("[summarize-tts] injected into reader", { len: st.trim().length }); } catch {} return; }
             }
           } catch {}
           setSummary(cleaned.slice(0, 800));
@@ -138,9 +150,22 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             body: JSON.stringify({ url: article.link, lang, textOnly: true }),
             signal: controller.signal,
           });
+          try {
+            const tid = res?.headers?.get("x-trace-id") || "";
+            if (tid) { setTraceId(tid); try { console.info("[summarize-tts] traceId", tid, { source: "client->server(no-key)" }); } catch {} }
+          } catch {}
           const json = await res.json();
+          try {
+            if (!traceId && typeof json?.traceId === "string" && json.traceId) {
+              setTraceId(json.traceId);
+              try { console.info("[summarize-tts] traceId", json.traceId, { source: "body" }); } catch {}
+            }
+          } catch {}
           if (!res.ok) throw new Error(json?.error || "summary failed");
-          setSummary(((json?.text as string) || "").toString());
+          const txt = ((json?.text as string) || "").toString();
+          try { console.info("[summarize-tts] received text", { len: txt?.length || 0, empty: !txt }); } catch {}
+          setSummary(txt);
+          try { console.info("[summarize-tts] injected into reader", { len: txt.length }); } catch {}
         }
       } catch {
         setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");

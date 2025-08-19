@@ -53,6 +53,7 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
     "ft.com",
     "lefigaro.fr",
     "techcrunch.com",
+    "arstechnica.com",
   ]; // rapide OG même en fast (inclut TechCrunch)
 
   const cacheKey = `${url}#${isFast ? "fast" : "full"}#${maxItems}`;

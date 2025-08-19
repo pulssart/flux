@@ -10,6 +10,26 @@ class ApiError extends Error {
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
+// --- Logging util ---
+function getTraceId(req: NextRequest): string {
+  const incoming = req.headers.get("x-trace-id");
+  if (incoming) return incoming;
+  try {
+    // @ts-ignore - global crypto in Node 18+
+    if (typeof crypto?.randomUUID === "function") return crypto.randomUUID();
+  } catch {}
+  return `trace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function logEvent(traceId: string, stage: string, data?: Record<string, unknown>) {
+  try {
+    const payload = { traceId, stage, ts: new Date().toISOString(), ...(data || {}) };
+    console.info("[summarize-tts]", JSON.stringify(payload));
+  } catch {
+    console.info("[summarize-tts]", stage);
+  }
+}
+
 type SummarizeTtsBody = {
   // Mode article unique (existant)
   url?: string;
@@ -27,35 +47,56 @@ export async function POST(req: NextRequest) {
   try {
     const { url, items, sourceTitle, lang = "fr", apiKey, voice, textOnly, mode = "structured" } = (await req.json()) as SummarizeTtsBody;
     if (!(apiKey || process.env.OPENAI_API_KEY)) {
-      return NextResponse.json({ error: "Clé OpenAI manquante. Renseignez-la dans Réglages." }, { status: 401 });
+      const traceId = getTraceId(req);
+      logEvent(traceId, "auth.error", { reason: "missing-api-key" });
+      return NextResponse.json(
+        { error: "Clé OpenAI manquante. Renseignez-la dans Réglages.", traceId },
+        { status: 401, headers: { "x-trace-id": traceId } }
+      );
     }
 
     // Budget temps strict pour éviter 504 Netlify
     const REQUEST_BUDGET_MS = 8000;
     const startedAt = Date.now();
     const timeLeft = () => Math.max(600, REQUEST_BUDGET_MS - (Date.now() - startedAt));
+    const traceId = getTraceId(req);
+    logEvent(traceId, "request", {
+      hasUrl: !!url,
+      itemsCount: Array.isArray(items) ? items.length : 0,
+      lang,
+      mode,
+      textOnly: !!textOnly,
+      budgetMs: REQUEST_BUDGET_MS,
+    });
 
     // Branche 1: article unique depuis une URL (comportement existant)
     if (url && typeof url === "string") {
       let html: string;
       try {
-        html = await fetchWithTimeout(url, Math.min(4500, timeLeft() - 500));
+        const fetchStart = Date.now();
+        const timeoutMs = Math.min(4500, timeLeft() - 500);
+        logEvent(traceId, "fetch.start", { url, timeoutMs, timeLeft: timeLeft() });
+        html = await fetchWithTimeout(url, timeoutMs);
+        logEvent(traceId, "fetch.ok", { ms: Date.now() - fetchStart, htmlLength: html?.length || 0, timeLeft: timeLeft() });
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
+        logEvent(traceId, "fetch.error", { url, message, timeLeft: timeLeft() });
         return NextResponse.json(
-          { error: "Échec de récupération de la page", stage: "fetch", details: { url, message } },
-          { status: 502 }
+          { error: "Échec de récupération de la page", stage: "fetch", details: { url, message }, traceId },
+          { status: 502, headers: { "x-trace-id": traceId } }
         );
       }
       const primary = extractMainText(html);
       let base = (primary || "").trim();
+      logEvent(traceId, "extract.primary", { primaryLength: base.length });
       if (base.length < 120) {
         const $ = cheerio.load(html);
         const fb = $("body").text().trim();
         if (!fb || fb.length < 80) {
+          logEvent(traceId, "extract.tooShort", { primaryLength: base.length, bodyLength: fb ? fb.length : 0 });
           return NextResponse.json(
-          { error: "Article introuvable ou trop court", stage: "extract", details: { primaryLength: base.length, bodyLength: (fb ? fb.length : 0) } },
-            { status: 422 }
+            { error: "Article introuvable ou trop court", stage: "extract", details: { primaryLength: base.length, bodyLength: (fb ? fb.length : 0) }, traceId },
+            { status: 422, headers: { "x-trace-id": traceId } }
           );
         }
         base = fb;
@@ -64,49 +105,63 @@ export async function POST(req: NextRequest) {
       const normalized = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim();
       const cleaned = sanitizeContent(normalized);
       const limited = cleaned.slice(0, 20000);
+      logEvent(traceId, "extract.cleaned", { baseLength: base.length, normalizedLength: normalized.length, cleanedLength: cleaned.length, limitedLength: limited.length });
 
       let summary: string;
       try {
-        summary = await summarizeWithRetries(limited, lang, apiKey, mode, timeLeft());
+        logEvent(traceId, "summary.start", { inputLength: limited.length, lang, mode, timeLeft: timeLeft() });
+        summary = await summarizeWithRetries(limited, lang, apiKey, mode, timeLeft(), traceId);
+        logEvent(traceId, "summary.ok", { outputLength: summary.length, timeLeft: timeLeft() });
       } catch (e: unknown) {
         // Quel que soit l'échec, retourner un fallback texte pour éviter 504
         const message = e instanceof Error ? e.message : String(e);
+        logEvent(traceId, "summary.error", { message, timeLeft: timeLeft() });
         // Fallback minimal: tronquer le contenu nettoyé si le modèle échoue
         const fallback = limited.slice(0, 800);
-        return NextResponse.json({ text: fallback, partial: true, reason: "summary-fallback", error: message }, { status: 200 });
+        return NextResponse.json({ text: fallback, partial: true, reason: "summary-fallback", error: message, traceId }, { status: 200, headers: { "x-trace-id": traceId } });
       }
 
       if (textOnly) {
-        return NextResponse.json({ text: summary }, { status: 200 });
+        return NextResponse.json({ text: summary, traceId }, { status: 200, headers: { "x-trace-id": traceId } });
       }
 
       try {
-        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, Math.min(2500, timeLeft()));
-        return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
+        const ttsStart = Date.now();
+        const ttsTimeout = Math.min(2500, timeLeft());
+        logEvent(traceId, "tts.start", { timeoutMs: ttsTimeout, timeLeft: timeLeft() });
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, ttsTimeout);
+        logEvent(traceId, "tts.ok", { ms: Date.now() - ttsStart, audioLength: audioBase64?.length || 0, timeLeft: timeLeft() });
+        return NextResponse.json({ text: summary, audio: audioBase64, traceId }, { status: 200, headers: { "x-trace-id": traceId } });
       } catch (e: unknown) {
         // Fallback: retourner le texte même si la synthèse audio échoue/timeout
         const isTimeout = e instanceof ApiError ? e.status === 504 : false;
-        return NextResponse.json({ text: summary, partial: true, reason: isTimeout ? "tts-timeout" : "tts-failed" }, { status: 200 });
+        logEvent(traceId, "tts.error", { reason: isTimeout ? "timeout" : "failed", message: e instanceof Error ? e.message : String(e), timeLeft: timeLeft() });
+        return NextResponse.json({ text: summary, partial: true, reason: isTimeout ? "tts-timeout" : "tts-failed", traceId }, { status: 200, headers: { "x-trace-id": traceId } });
       }
     }
 
     // Branche 2: digest du jour depuis liste de titres/extraits
     if (Array.isArray(items) && items.length > 0) {
       const input = buildDigestInput(items);
+      logEvent(traceId, "digest.input", { items: items.length, inputLength: input.length, lang });
       let digestSummary: string;
       try {
+        logEvent(traceId, "digest.summary.start", { inputLength: input.length, lang });
         digestSummary = await summarizeDailyDigestWithGPT5(input, lang, apiKey);
+        logEvent(traceId, "digest.summary.ok", { outputLength: digestSummary.length });
       } catch (e: unknown) {
         if (e instanceof ApiError) {
+          logEvent(traceId, "digest.summary.error", { status: e.status, message: e.message });
           return NextResponse.json(
-            { error: e.message, stage: "summary" },
-            { status: e.status }
+            { error: e.message, stage: "summary", traceId },
+            { status: e.status, headers: { "x-trace-id": traceId } }
           );
         }
         const message = e instanceof Error ? e.message : String(e);
+        logEvent(traceId, "digest.summary.error", { status: 500, message });
         return NextResponse.json(
-          { error: message, stage: "summary" },
-          { status: 500 }
+          { error: message, stage: "summary", traceId },
+          { status: 500, headers: { "x-trace-id": traceId } }
         );
       }
 
@@ -117,28 +172,37 @@ export async function POST(req: NextRequest) {
 
       let audioBase64: string;
       try {
+        logEvent(traceId, "digest.tts.start", { textLength: finalText.length });
         audioBase64 = await ttsWithTTS1HD(finalText, lang, apiKey, voice, 20000);
+        logEvent(traceId, "digest.tts.ok", { audioLength: audioBase64?.length || 0 });
       } catch (e: unknown) {
         if (e instanceof ApiError) {
+          logEvent(traceId, "digest.tts.error", { status: e.status, message: e.message });
           return NextResponse.json(
-            { error: e.message, stage: "tts" },
-            { status: e.status }
+            { error: e.message, stage: "tts", traceId },
+            { status: e.status, headers: { "x-trace-id": traceId } }
           );
         }
         const message = e instanceof Error ? e.message : String(e);
-        return NextResponse.json({ text: finalText, partial: true, reason: "tts-failed", error: message }, { status: 200 });
+        logEvent(traceId, "digest.tts.error", { status: 200, reason: "tts-failed", message });
+        return NextResponse.json({ text: finalText, partial: true, reason: "tts-failed", error: message, traceId }, { status: 200, headers: { "x-trace-id": traceId } });
       }
 
-      return NextResponse.json({ text: finalText, audio: audioBase64 }, { status: 200 });
+      return NextResponse.json({ text: finalText, audio: audioBase64, traceId }, { status: 200, headers: { "x-trace-id": traceId } });
     }
 
-    return NextResponse.json({ error: "Requête invalide: url ou items requis" }, { status: 400 });
+    logEvent(traceId, "request.invalid", {});
+    return NextResponse.json({ error: "Requête invalide: url ou items requis", traceId }, { status: 400, headers: { "x-trace-id": traceId } });
   } catch (e: unknown) {
     if (e instanceof ApiError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+      const traceId = `trace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      logEvent(traceId, "fatal", { status: e.status, message: e.message });
+      return NextResponse.json({ error: e.message, traceId }, { status: e.status, headers: { "x-trace-id": traceId } });
     }
     const message = e instanceof Error ? e.message : "Erreur";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const traceId = `trace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    logEvent(traceId, "fatal", { status: 500, message });
+    return NextResponse.json({ error: message, traceId }, { status: 500, headers: { "x-trace-id": traceId } });
   }
 }
 
@@ -332,7 +396,8 @@ async function summarizeWithRetries(
   lang: string,
   apiKey: string | undefined,
   mode: "structured" | "audio",
-  budgetMs?: number
+  budgetMs?: number,
+  traceId?: string
 ): Promise<string> {
   const attempts = [1, 2, 3];
   let lastErr: unknown = null;
@@ -340,6 +405,7 @@ async function summarizeWithRetries(
   for (const n of attempts) {
     try {
       const perTry = typeof budgetMs === "number" ? Math.max(2000, Math.floor(budgetMs / (attempts.length + 1 - n))) : 10000;
+      logEvent(traceId || "", "summary.attempt", { attempt: n, textLength: text.length, mode, lang, budgetMs: perTry });
       const result = mode === "audio"
         ? await summarizeForAudio(text, lang, apiKey)
         : await summarizeStructured(text, lang, apiKey);
@@ -353,6 +419,12 @@ async function summarizeWithRetries(
       if (isTimeout || n < attempts.length) {
         const limits = [10000, 6000, 3000];
         text = input.slice(0, limits[n] || 3000);
+        logEvent(traceId || "", "summary.attempt.error", {
+          attempt: n,
+          isTimeout,
+          message: e instanceof Error ? e.message : String(e),
+          nextLength: text.length,
+        });
         await new Promise((r) => setTimeout(r, 500 * n));
         continue;
       }
