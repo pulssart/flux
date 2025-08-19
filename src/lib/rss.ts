@@ -101,9 +101,12 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
         if (yt) image = yt;
       }
 
-      // Fallback final: image thématique via Unsplash (basée sur le titre)
+      // Fallback final: image thématique via Unsplash (basée sur un mot‑clé optimisé)
       if (!image) {
-        const q = (item.title || "").toString().trim();
+        const baseTitle = (item.title || "").toString().trim();
+        const baseSnippet = (item.contentSnippet || "").toString().trim();
+        const kw = await generateUnsplashKeyword(baseTitle, baseSnippet, Math.min(1200, timeoutMs)).catch(() => null);
+        const q = (kw || baseTitle).trim();
         if (q) {
           const u = await findUnsplashImage(q, Math.min(2500, timeoutMs)).catch(() => null);
           if (u) image = u;
@@ -444,6 +447,60 @@ async function findUnsplashImage(query: string, timeoutMs = 2500): Promise<strin
   } catch {
     return null;
   }
+}
+
+// Génération ultra‑légère d’un mot‑clé Unsplash pertinent à partir du titre/snippet
+async function generateUnsplashKeyword(title: string, snippet?: string, timeoutMs = 1200): Promise<string | null> {
+  try {
+    const apiKey = (process.env.OPENAI_API_KEY || "").toString().trim();
+    if (!apiKey) return null;
+    const t = (title || "").slice(0, 120);
+    const s = (snippet || "").slice(0, 140);
+    const prompt =
+      "You are selecting a minimal Unsplash search query. From the news title and optional snippet, output 1-3 concise English keywords (nouns), lowercase, no punctuation, max 3 words, best representing the visual topic. Reply with keywords only.\n\n" +
+      `title: ${t}\nsnippet: ${s}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let res: Response | null = null;
+    try {
+      res = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model: "gpt-5-nano", input: prompt }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res || !res.ok) return null;
+    const json = (await res.json()) as unknown;
+    const text = extractTextFromMini(json);
+    return (text || "").toString().trim().toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").slice(0, 60) || null;
+  } catch {
+    return null;
+  }
+}
+
+function extractTextFromMini(json: unknown): string {
+  if (!json || typeof json !== "object") return "";
+  const outputText = (json as { output_text?: unknown }).output_text;
+  if (typeof outputText === "string" && outputText.trim()) return outputText;
+  const outputArr = Array.isArray((json as { output?: unknown }).output)
+    ? ((json as { output?: unknown }).output as unknown[])
+    : [];
+  for (const o of outputArr) {
+    const content = Array.isArray((o as { content?: unknown }).content)
+      ? ((o as { content?: unknown }).content as unknown[])
+      : [];
+    for (const c of content) {
+      const cText = (c as { text?: unknown }).text;
+      if (typeof cText === "string" && cText.trim()) return cText;
+    }
+  }
+  return "";
 }
 
 
