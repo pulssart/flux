@@ -414,16 +414,11 @@ async function findUnsplashImage(query: string, timeoutMs = 2500): Promise<strin
       }
     }
 
-    // Fallback sans clé: source.unsplash.com (retourne une image aléatoire pour la requête)
-    const encoded = encodeURIComponent(q || "news");
-    const sourceUrl = `https://source.unsplash.com/featured/1200x630/?${encoded}`;
-    // Important: éviter les mots trop génériques vides
-    if (!q) {
-      UNSPLASH_CACHE.set(q, { savedAt: now, url: sourceUrl });
-      return sourceUrl;
-    }
-    UNSPLASH_CACHE.set(q, { savedAt: now, url: sourceUrl });
-    return sourceUrl;
+    // Fallback sans clé: utiliser Picsum (pas de quota) avec seed déterministe
+    const seed = encodeURIComponent(q || "news");
+    const picsum = `https://picsum.photos/seed/${seed}/1200/630`;
+    UNSPLASH_CACHE.set(q, { savedAt: now, url: picsum });
+    return picsum;
   } catch {
     return null;
   }
