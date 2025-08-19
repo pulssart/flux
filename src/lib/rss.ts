@@ -180,7 +180,7 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
   // 1) Sélecteurs prioritaires (WordPress & co.)
-  const pickUrlFromEl = ($el: cheerio.Cheerio<any>): string | null => {
+  const pickUrlFromEl = ($el: cheerio.Cheerio<cheerio.AnyNode>): string | null => {
     const attrs = [
       $el.attr("src"),
       $el.attr("data-src"),
