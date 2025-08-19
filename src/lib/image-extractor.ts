@@ -1,38 +1,44 @@
 import * as cheerio from "cheerio";
 
 const IMAGE_SELECTORS = [
-  // Open Graph
+  // Open Graph (plus fiable)
+  'meta[property="og:image:secure_url"]',
   'meta[property="og:image"]',
   'meta[name="og:image"]',
-  'meta[property="og:image:secure_url"]',
-  // Twitter
-  'meta[name="twitter:image"]',
+  // Twitter Cards (souvent haute qualité)
   'meta[name="twitter:image:src"]',
-  // Schema.org
+  'meta[name="twitter:image"]',
+  'meta[name="twitter:image:large"]',
+  // Schema.org et autres standards
   'meta[itemprop="image"]',
-  // Article specific
   'meta[property="article:image"]',
   'meta[name="article:image"]',
-  // RSS specific
+  'meta[name="thumbnail"]',
+  // RSS et autres
   'link[rel="image_src"]',
-  // Apple
-  'meta[name="apple-touch-startup-image"]',
+  'link[rel="apple-touch-icon"]',
+  'link[rel="icon"]',
 ];
 
 const CONTENT_SELECTORS = [
-  // Article containers
-  "article img",
-  ".post-content img",
-  ".entry-content img",
-  ".article-content img",
-  ".content img",
-  // Featured images
+  // Images mises en avant
   ".featured-image img",
   ".post-thumbnail img",
   ".hero-image img",
-  // Fallbacks
-  "main img",
-  "#content img",
+  ".wp-post-image",
+  // Conteneurs d'articles
+  "article img:first-of-type",
+  ".post-content img:first-of-type",
+  ".entry-content img:first-of-type",
+  ".article-content img:first-of-type",
+  ".article__content img:first-of-type",
+  ".post__content img:first-of-type",
+  // Conteneurs génériques
+  ".content img:first-of-type",
+  "main img:first-of-type",
+  "#content img:first-of-type",
+  // Fallback: première image de la page
+  "img:first-of-type",
 ];
 
 const IGNORED_DOMAINS = [
@@ -61,7 +67,11 @@ export async function extractBestImage(url: string, html?: string, timeoutMs = 5
       try {
         const res = await fetch(url, {
           signal: controller.signal,
-          headers: { "user-agent": "FluxRSS/1.0" }
+          headers: { 
+            "user-agent": "Mozilla/5.0 (compatible; FluxRSS/1.0; +https://flux-rss.com)",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "accept-language": "en-US,en;q=0.5"
+          }
         });
         if (!res.ok) return null;
         html = await res.text();
@@ -77,12 +87,28 @@ export async function extractBestImage(url: string, html?: string, timeoutMs = 5
 
     // 1. Chercher les méta-images (OG, Twitter, etc.)
     for (const selector of IMAGE_SELECTORS) {
-      const content = $(selector).attr("content") || $(selector).attr("href");
+      const $el = $(selector);
+      const content = $el.attr("content") || $el.attr("href");
       if (content) {
         try {
-          const absoluteUrl = new URL(content, url).toString();
+          let absoluteUrl = content;
+          // Gérer les URLs relatives et protocol-relative
+          if (content.startsWith("//")) {
+            absoluteUrl = `https:${content}`;
+          } else if (!content.startsWith("http")) {
+            absoluteUrl = new URL(content, url).toString();
+          }
+          
           if (!IGNORED_DOMAINS.some(domain => absoluteUrl.includes(domain))) {
-            images.push({ url: absoluteUrl });
+            // Extraire les dimensions des méta-tags si disponibles
+            const width = parseInt($el.attr("width") || $el.attr("content-width") || "0", 10);
+            const height = parseInt($el.attr("height") || $el.attr("content-height") || "0", 10);
+            images.push({ 
+              url: absoluteUrl,
+              width,
+              height,
+              alt: $el.attr("alt") || $el.attr("title") || ""
+            });
           }
         } catch {}
       }
@@ -92,22 +118,51 @@ export async function extractBestImage(url: string, html?: string, timeoutMs = 5
     for (const selector of CONTENT_SELECTORS) {
       $(selector).each((_, el) => {
         const $img = $(el);
-        const src = $img.attr("src");
+        const src = $img.attr("src") || $img.attr("data-src") || $img.attr("data-lazy-src");
         if (src) {
           try {
-            const absoluteUrl = new URL(src, url).toString();
+            let absoluteUrl = src;
+            if (src.startsWith("//")) {
+              absoluteUrl = `https:${src}`;
+            } else if (!src.startsWith("http")) {
+              absoluteUrl = new URL(src, url).toString();
+            }
+
             if (!IGNORED_DOMAINS.some(domain => absoluteUrl.includes(domain))) {
-              const width = parseInt($img.attr("width") || "0", 10);
-              const height = parseInt($img.attr("height") || "0", 10);
-              const alt = $img.attr("alt");
+              // Vérifier d'abord les attributs width/height
+              let width = parseInt($img.attr("width") || "0", 10);
+              let height = parseInt($img.attr("height") || "0", 10);
               
-              // Ignorer les petites images
-              if (width && height && (width < MIN_IMAGE_SIZE || height < MIN_IMAGE_SIZE)) {
+              // Si pas de dimensions dans les attributs, chercher dans le style
+              if (!width || !height) {
+                const style = $img.attr("style") || "";
+                const widthMatch = style.match(/width:\s*(\d+)px/);
+                const heightMatch = style.match(/height:\s*(\d+)px/);
+                if (widthMatch) width = parseInt(widthMatch[1], 10);
+                if (heightMatch) height = parseInt(heightMatch[1], 10);
+              }
+              
+              // Vérifier aussi data-width/data-height
+              if (!width) width = parseInt($img.attr("data-width") || "0", 10);
+              if (!height) height = parseInt($img.attr("data-height") || "0", 10);
+              
+              const alt = $img.attr("alt") || $img.attr("title") || "";
+              
+              // Ignorer les petites images seulement si on a les dimensions
+              if ((width || height) && (width < MIN_IMAGE_SIZE && height < MIN_IMAGE_SIZE)) {
                 return;
               }
               
               // Ignorer les images probablement décoratives
-              if (src.includes("icon") || src.includes("logo") || src.includes("avatar")) {
+              const urlLower = absoluteUrl.toLowerCase();
+              if (
+                urlLower.includes("icon") || 
+                urlLower.includes("logo") || 
+                urlLower.includes("avatar") ||
+                urlLower.includes("badge") ||
+                urlLower.includes("button") ||
+                /\b1x1\b/.test(urlLower)
+              ) {
                 return;
               }
 
@@ -126,16 +181,30 @@ export async function extractBestImage(url: string, html?: string, timeoutMs = 5
         return !url.includes("tracking") &&
                !url.includes("pixel") &&
                !url.includes("advertisement") &&
-               !url.endsWith(".svg");
+               !url.includes("banner") &&
+               !url.includes("analytics") &&
+               !url.includes("spacer") &&
+               !url.endsWith(".svg") &&
+               !url.endsWith(".gif");
       })
       .sort((a, b) => {
-        // Prioriser les images avec dimensions
-        if (a.width && a.height && (!b.width || !b.height)) return -1;
-        if (b.width && b.height && (!a.width || !a.height)) return 1;
+        // Prioriser les images avec dimensions correctes
+        const aHasSize = (a.width || 0) > MIN_IMAGE_SIZE || (a.height || 0) > MIN_IMAGE_SIZE;
+        const bHasSize = (b.width || 0) > MIN_IMAGE_SIZE || (b.height || 0) > MIN_IMAGE_SIZE;
+        if (aHasSize && !bHasSize) return -1;
+        if (bHasSize && !aHasSize) return 1;
         
         // Prioriser les images avec alt text pertinent
-        if (a.alt && !b.alt) return -1;
-        if (b.alt && !a.alt) return 1;
+        const aHasAlt = !!a.alt && a.alt.length > 5;
+        const bHasAlt = !!b.alt && b.alt.length > 5;
+        if (aHasAlt && !bHasAlt) return -1;
+        if (bHasAlt && !aHasAlt) return 1;
+
+        // En dernier recours, prioriser les URLs qui semblent être des images d'article
+        const aIsArticleImg = /\b(article|post|feature|hero|thumbnail)\b/.test(a.url.toLowerCase());
+        const bIsArticleImg = /\b(article|post|feature|hero|thumbnail)\b/.test(b.url.toLowerCase());
+        if (aIsArticleImg && !bIsArticleImg) return -1;
+        if (bIsArticleImg && !aIsArticleImg) return 1;
 
         return 0;
       });
