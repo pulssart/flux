@@ -46,7 +46,14 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
   const maxItems = typeof opts?.maxItems === "number" && opts!.maxItems! > 0 ? Math.floor(opts!.maxItems!) : (isFast ? 20 : 60);
   const enrichOg = typeof opts?.enrichOg === "boolean" ? opts.enrichOg : !isFast;
   const timeoutMs = typeof opts?.timeoutMs === "number" && opts!.timeoutMs! > 0 ? Math.floor(opts!.timeoutMs!) : (isFast ? 4000 : 10000);
-  const ALWAYS_OG_HOSTS = ["lemonde.fr", "nytimes.com", "bbc.com", "ft.com", "lefigaro.fr"]; // rapide OG même en fast
+  const ALWAYS_OG_HOSTS = [
+    "lemonde.fr",
+    "nytimes.com",
+    "bbc.com",
+    "ft.com",
+    "lefigaro.fr",
+    "techcrunch.com",
+  ]; // rapide OG même en fast (inclut TechCrunch)
 
   const cacheKey = `${url}#${isFast ? "fast" : "full"}#${maxItems}`;
   const cached = feedCache.get(cacheKey);
@@ -186,10 +193,19 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
   const candidates: string[] = [];
   // Prioritaire: WordPress featured image
   try {
-    const featured = $(
-      ".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img"
-    ).first();
-    if (featured && featured.length) {
+    // Certaines pages utilisent <a class="wp-block-post-featured-image"><img ...> ou un lien direct vers l'image
+    let heroImage: string | null = null;
+    let featured = $(".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img").first();
+    if (!featured || !featured.length) {
+      const linkWrap = $(".wp-block-post-featured-image a").first();
+      if (linkWrap && linkWrap.length) {
+        const href = linkWrap.attr("href");
+        if (href && /\.(jpg|jpeg|png|webp|gif)(?:\?|$)/i.test(href)) {
+          heroImage = resolveUrl(href, baseLink);
+        }
+      }
+    }
+    if (!heroImage && featured && featured.length) {
       const attrs = [
         featured.attr("src"),
         featured.attr("data-src"),
@@ -203,8 +219,9 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
       if (srcset) attrs.push(srcset);
       const src = attrs.find(Boolean) || null;
       const normalized = normalizeImageUrl(src);
-      if (normalized) return resolveUrl(normalized, baseLink);
+      if (normalized) heroImage = resolveUrl(normalized, baseLink);
     }
+    if (heroImage) return heroImage;
   } catch {}
   // Sources <source media=...> en début de post (fréquent dans des heros responsive)
   try {
