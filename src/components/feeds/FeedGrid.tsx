@@ -59,6 +59,34 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string; image?: string } | null>(null);
 
+  // Favicons helpers (local to this file)
+  function getFaviconUrl(u?: string | null): string | null {
+    if (!u) return null;
+    try {
+      const { hostname } = new URL(u);
+      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+    } catch {
+      return null;
+    }
+  }
+
+  const FaviconInline = ({ url, size = 16, className }: { url?: string; size?: number; className?: string }) => {
+    const [ok, setOk] = useState(true);
+    const src = getFaviconUrl(url);
+    if (!src || !ok) return <span className={`inline-block rounded-sm bg-foreground/10`} style={{ width: size, height: size }} />;
+    return (
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className={className || "inline-block rounded-sm object-contain"}
+        referrerPolicy="no-referrer"
+        onError={() => setOk(false)}
+      />
+    );
+  };
+
   useEffect(() => {
     const on = (e: Event) => {
       const detail = (e as CustomEvent).detail as { article?: Article } | undefined;
@@ -616,8 +644,9 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
           )}
         </div>
         <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
-          <div className="text-xs text-muted-foreground shrink-0">
-            {article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : null}
+          <div className="text-xs text-muted-foreground shrink-0 flex items-center gap-2">
+            {article.link ? <FaviconInline url={article.link} size={16} /> : null}
+            <span>{article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : null}</span>
           </div>
           <h3 className="font-medium leading-tight line-clamp-2">
             {article.title}
@@ -737,8 +766,9 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
           </button>
         ) : null}
         <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">
-          <div className={`text-xs mb-2 ${subTextClass}`}>
-            {article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : null}
+          <div className={`text-xs mb-2 ${subTextClass} flex items-center gap-2`}>
+            {article.link ? <FaviconInline url={article.link} size={18} className="inline-block rounded-sm" /> : null}
+            <span>{article.pubDate ? format(new Date(article.pubDate), "d MMM yyyy", { locale: fr }) : null}</span>
           </div>
           <h2 className={`text-2xl md:text-3xl font-semibold leading-tight mb-2 ${textClass}`}>{article.title}</h2>
           {article.contentSnippet && (
