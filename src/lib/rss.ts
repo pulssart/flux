@@ -195,7 +195,7 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
   try {
     // Certaines pages utilisent <a class="wp-block-post-featured-image"><img ...> ou un lien direct vers l'image
     let heroImage: string | null = null;
-    let featured = $(".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img").first();
+    const featured = $(".wp-block-post-featured-image img, .wp-post-image, .post-thumbnail img, .featured-image img").first();
     if (!featured || !featured.length) {
       const linkWrap = $(".wp-block-post-featured-image a").first();
       if (linkWrap && linkWrap.length) {
