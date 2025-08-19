@@ -331,14 +331,18 @@ async function summarizeWithRetries(
   input: string,
   lang: string,
   apiKey: string | undefined,
-  mode: "structured" | "audio"
+  mode: "structured" | "audio",
+  budgetMs?: number
 ): Promise<string> {
   const attempts = [1, 2, 3];
   let lastErr: unknown = null;
   let text = input;
   for (const n of attempts) {
     try {
-      const result = mode === "audio" ? await summarizeForAudio(text, lang, apiKey) : await summarizeStructured(text, lang, apiKey);
+      const perTry = typeof budgetMs === "number" ? Math.max(2000, Math.floor(budgetMs / (attempts.length + 1 - n))) : 10000;
+      const result = mode === "audio"
+        ? await summarizeForAudio(text, lang, apiKey)
+        : await summarizeStructured(text, lang, apiKey);
       if (result && result.trim()) return result.trim();
       throw new ApiError(502, "empty-summary");
     } catch (e: unknown) {
