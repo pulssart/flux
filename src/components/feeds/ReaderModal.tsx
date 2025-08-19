@@ -62,10 +62,6 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
 
   useEffect(() => {
     if (!open || !article?.link) return;
-    if (!tryConsumeToken()) {
-      // Continuer malgré l'absence de tokens (mode illimité via clé locale)
-      try { toast.error(lang === "fr" ? "Plus de tokens aujourd'hui (mode illimité avec votre clé)." : "No tokens left today (using your API key anyway)." ); } catch {}
-    }
     try { console.info("[reader] open", { url: article.link, lang }); } catch {}
     setLoading(true);
     setSummary("");
@@ -100,50 +96,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             try { console.info("[summarize-tts] traceId", json.traceId, { source: "body" }); } catch {}
           }
         } catch {}
-        if (!res.ok) {
-          // Fallback immédiat côté client si clé locale dispo et que l'échec est au stade summary
-          if (apiKey && (json?.stage === "summary" || json?.stage === undefined)) {
-            try { console.warn("[reader] server summary failed → client fallback", { status: res.status, stage: json?.stage }); } catch {}
-            const artStart = Date.now();
-            const art = await fetch("/api/article", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: article.link }),
-              signal: controller.signal,
-            }).then(r => r.ok ? r.json() : Promise.reject(new Error("article-fail"))) as { contentHtml?: string };
-            const html = (art?.contentHtml || "").toString();
-            try { console.info("[reader] client-fallback article.fetch.ok", { ms: Date.now() - artStart, htmlLen: html.length }); } catch {}
-            const tmp = document.createElement("div");
-            tmp.innerHTML = html;
-            const base = tmp.textContent || tmp.innerText || "";
-            const cleaned = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 6000);
-            const prompt = lang === "fr"
-              ? "Nettoie d'abord le texte source pour retirer toute trace de publicités, appels à l'action (abonnement, newsletter), mentions de cookies, éléments de navigation ou sections non reliées au contenu journalistique. Ne garde que le texte éditorial.\n\nÀ partir de ce texte propre, produis un RÉSUMÉ STRUCTURÉ en français (plus détaillé) au format SUIVANT (strict):\nTL;DR: 1 phrase synthétique.\nPoints clés:\n- 6 à 10 puces courtes, factuelles et lisibles (noms propres, chiffres utiles)\nContexte: 2 à 4 phrases pour situer le sujet (qui, quoi, où, enjeux).\nÀ suivre: 1 à 3 puces sur les suites possibles ou impacts.\nCitation: une courte citation pertinente si disponible (sinon omets cette section).\n\nPas d'intro/outro hors sections. Pas d'emoji.\n\n"
-              : "First, clean the source text to remove any ads/CTAs/cookies/navigation or unrelated blocks. Keep only editorial content.\n\nFrom this cleaned text, produce a DETAILED structured summary in English with the EXACT format:\nTL;DR: 1 concise sentence.\nKey points:\n- 6 to 10 short, factual bullets (proper nouns, meaningful numbers)\nContext: 2–4 sentences (who, what, where, stakes).\nWhat to watch: 1–3 bullets.\nQuote: a short relevant quote if available (otherwise omit).\n\nNo extra intro/outro. No emojis.\n\n";
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 20000);
-            const aiStart = Date.now();
-            const aiRes = await fetch("https://api.openai.com/v1/responses", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-              body: JSON.stringify({ model: "gpt-5-nano", input: `${prompt}${cleaned}` }),
-              signal: ctrl.signal,
-            }).catch(() => null);
-            clearTimeout(timer);
-            try { console.info("[reader] client-fallback done", { ok: !!(aiRes && aiRes.ok), ms: Date.now() - aiStart }); } catch {}
-            if (aiRes && aiRes.ok) {
-              const j2 = await aiRes.json();
-              const text = (() => {
-                const ot = j2?.output_text; if (typeof ot === "string" && ot.trim()) return ot;
-                const out = Array.isArray(j2?.output) ? j2.output : [];
-                for (const o of out) { const c = Array.isArray(o?.content) ? o.content : []; for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; } }
-                return "";
-              })();
-              if (text && text.trim()) { setSummary(text.trim()); try { console.info("[reader] inject", { source: "client-fallback", len: text.trim().length }); } catch {} return; }
-            }
-          }
-          throw new Error(json?.error || "summary failed");
-        }
+        if (!res.ok) throw new Error(json?.error || "summary failed");
         const txt = ((json?.text as string) || "").toString();
         try { console.info("[summarize-tts] received text", { len: txt?.length || 0, empty: !txt }); } catch {}
         if (!txt || !txt.trim()) throw new Error("server-empty-text");
