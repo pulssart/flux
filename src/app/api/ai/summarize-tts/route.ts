@@ -1,9 +1,14 @@
 export const runtime = "nodejs";
 
+class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import { ApiError } from "@/lib/api-error";
-import { generateText, generateSpeech } from "@/lib/openai-client";
 
 type SummarizeTtsBody = {
   // Mode article unique (existant)
@@ -57,41 +62,9 @@ export async function POST(req: NextRequest) {
 
       let summary: string;
       try {
-        const prompt = mode === "audio"
-          ? (lang === "fr"
-              ? "Nettoie d'abord le texte source pour retirer publicités, appels à l'action, mentions de cookies, navigation et tout contenu non éditorial.\n\n" +
-                "À partir de ce texte propre, écris un RÉSUMÉ NARRATIF en français adapté à une lecture audio: 6 à 10 phrases, fluides, sans titres ni puces, sans sections nommées, sans emoji. " +
-                "Va à l'essentiel, intègre les faits clés (noms, chiffres utiles) et assure une progression naturelle avec de courtes transitions. " +
-                "Évite les citations longues; si nécessaire, intègre une courte citation au sein d'une phrase. " +
-                "Longueur ciblée: 700 à 1200 caractères."
-              : "First, clean the source text to remove ads/CTAs/cookies/navigation and any non‑editorial content.\n\n" +
-                "From this cleaned text, write a NARRATIVE SUMMARY in English suitable for audio: 6–10 sentences, fluent, no headings, no bullets, no section labels, no emojis. " +
-                "Focus on key facts (proper nouns, meaningful numbers) and provide a natural flow with brief transitions. " +
-                "Avoid long quotes; if needed, weave a short quote into a sentence. " +
-                "Target length: 700–1200 characters.")
-          : (lang === "fr"
-              ? "Nettoie d'abord le texte source pour retirer toute trace de publicités, appels à l'action (abonnement, newsletter), mentions de cookies, éléments de navigation ou sections non reliées au contenu journalistique. Ne garde que le texte éditorial.\n\n" +
-                "À partir de ce texte propre, produis un RÉSUMÉ STRUCTURÉ en français (plus détaillé) au format SUIVANT (strict) :\n\n" +
-                "TL;DR: 1 phrase synthétique.\n" +
-                "Points clés:\n- 6 à 10 puces courtes, factuelles et lisibles (noms propres, chiffres utiles)\n" +
-                "Contexte: 2 à 4 phrases pour situer le sujet (qui, quoi, où, enjeux).\n" +
-                "À suivre: 1 à 3 puces sur les suites possibles ou impacts.\n" +
-                "Citation: une courte citation pertinente si disponible (sinon omets cette section).\n\n" +
-                "Ne fais pas d'introduction ou de conclusion hors de ces sections. Pas d'emoji."
-              : "First, clean the source text to remove any ads, calls-to-action (subscribe/newsletter), cookie notices, navigation, or unrelated blocks. Keep only editorial content.\n\n" +
-                "From this cleaned text, produce a more DETAILED structured summary in English with the EXACT format below:\n\n" +
-                "TL;DR: 1 concise sentence.\n" +
-                "Key points:\n- 6 to 10 short, factual bullets (proper nouns, meaningful numbers)\n" +
-                "Context: 2–4 sentences to frame the story (who, what, where, stakes).\n" +
-                "What to watch: 1–3 bullets on likely follow‑ups or impact.\n" +
-                "Quote: a short relevant quote if available (otherwise omit this section).\n\n" +
-                "Do not add intro/outro beyond these sections. No emojis.");
-
-        summary = await generateText(prompt, limited, apiKey || "", {
-          timeoutMs: 25000,
-          retries: 2,
-          model: "gpt-5-nano"
-        });
+        summary = mode === "audio"
+          ? await summarizeForAudio(limited, lang, apiKey)
+          : await summarizeStructured(limited, lang, apiKey);
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -110,14 +83,8 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const audioChunks = await generateSpeech(summary, voice || "alloy", apiKey || "", {
-          timeoutMs: 30000,
-          retries: 2
-        });
-        
-        // Si on a plusieurs chunks audio, on les concatène
-        const audio = audioChunks.join(",");
-        return NextResponse.json({ text: summary, audio, chunks: audioChunks.length }, { status: 200 });
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, 20000);
+        return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
       } catch (e: unknown) {
         // Fallback: retourner le texte même si la synthèse audio échoue/timeout
         const isTimeout = e instanceof ApiError ? e.status === 504 : false;
@@ -130,15 +97,7 @@ export async function POST(req: NextRequest) {
       const input = buildDigestInput(items);
       let digestSummary: string;
       try {
-        const prompt = lang === "fr"
-          ? "À partir d'une liste de titres et d'extraits d'articles du jour, produis un court bulletin structuré (4 à 7 phrases) en français, regroupant les grands thèmes et reliant les infos de manière fluide."
-          : "From a list of today's headlines and snippets, produce a short structured bulletin (4-7 sentences) summarizing key themes in the requested language.";
-
-        digestSummary = await generateText(prompt, input, apiKey || "", {
-          timeoutMs: 25000,
-          retries: 2,
-          model: "gpt-5-nano"
-        });
+        digestSummary = await summarizeDailyDigestWithGPT5(input, lang, apiKey);
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -158,15 +117,9 @@ export async function POST(req: NextRequest) {
         : `Here is today's news from ${sourceTitle || "your selection"}: `;
       const finalText = `${prefix}${digestSummary}`.trim();
 
+      let audioBase64: string;
       try {
-        const audioChunks = await generateSpeech(finalText, voice || "alloy", apiKey || "", {
-          timeoutMs: 30000,
-          retries: 2
-        });
-        
-        // Si on a plusieurs chunks audio, on les concatène
-        const audio = audioChunks.join(",");
-        return NextResponse.json({ text: finalText, audio, chunks: audioChunks.length }, { status: 200 });
+        audioBase64 = await ttsWithTTS1HD(finalText, lang, apiKey, voice, 20000);
       } catch (e: unknown) {
         if (e instanceof ApiError) {
           return NextResponse.json(
@@ -177,6 +130,8 @@ export async function POST(req: NextRequest) {
         const message = e instanceof Error ? e.message : String(e);
         return NextResponse.json({ text: finalText, partial: true, reason: "tts-failed", error: message }, { status: 200 });
       }
+
+      return NextResponse.json({ text: finalText, audio: audioBase64 }, { status: 200 });
     }
 
     return NextResponse.json({ error: "Requête invalide: url ou items requis" }, { status: 400 });
@@ -246,12 +201,187 @@ function extractMainText(html: string): string {
   return best;
 }
 
+async function summarizeStructured(input: string, lang: string, clientKey?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const prompt =
+    lang === "fr"
+      ? (
+        "Nettoie d'abord le texte source pour retirer toute trace de publicités, appels à l'action (abonnement, newsletter), mentions de cookies, éléments de navigation ou sections non reliées au contenu journalistique. Ne garde que le texte éditorial.\n\n" +
+        "À partir de ce texte propre, produis un RÉSUMÉ STRUCTURÉ en français (plus détaillé) au format SUIVANT (strict) :\n\n" +
+        "TL;DR: 1 phrase synthétique.\n" +
+        "Points clés:\n- 6 à 10 puces courtes, factuelles et lisibles (noms propres, chiffres utiles)\n" +
+        "Contexte: 2 à 4 phrases pour situer le sujet (qui, quoi, où, enjeux).\n" +
+        "À suivre: 1 à 3 puces sur les suites possibles ou impacts.\n" +
+        "Citation: une courte citation pertinente si disponible (sinon omets cette section).\n\n" +
+        "Ne fais pas d'introduction ou de conclusion hors de ces sections. Pas d'emoji."
+      )
+      : (
+        "First, clean the source text to remove any ads, calls-to-action (subscribe/newsletter), cookie notices, navigation, or unrelated blocks. Keep only editorial content.\n\n" +
+        "From this cleaned text, produce a more DETAILED structured summary in English with the EXACT format below:\n\n" +
+        "TL;DR: 1 concise sentence.\n" +
+        "Key points:\n- 6 to 10 short, factual bullets (proper nouns, meaningful numbers)\n" +
+        "Context: 2–4 sentences to frame the story (who, what, where, stakes).\n" +
+        "What to watch: 1–3 bullets on likely follow‑ups or impact.\n" +
+        "Quote: a short relevant quote if available (otherwise omit this section).\n\n" +
+        "Do not add intro/outro beyond these sections. No emojis."
+      );
+
+  // Utiliser l'API Responses pour gpt-5-nano
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-nano",
+      input: `${prompt}\n\n${input}`,
+    }),
+    signal: controller.signal,
+  });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
+  }
+  const json: unknown = await res.json();
+  const text = extractTextFromResponses(json);
+  if (!text) {
+    const details = {
+      keys: Object.keys(json || {}),
+      preview: JSON.stringify(json)?.slice(0, 300),
+    };
+    throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
+  }
+  return text.trim();
+}
+
+async function summarizeForAudio(input: string, lang: string, clientKey?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const prompt =
+    lang === "fr"
+      ? (
+        "Nettoie d'abord le texte source pour retirer publicités, appels à l'action, mentions de cookies, navigation et tout contenu non éditorial.\n\n" +
+        "À partir de ce texte propre, écris un RÉSUMÉ NARRATIF en français adapté à une lecture audio: 6 à 10 phrases, fluides, sans titres ni puces, sans sections nommées, sans emoji. " +
+        "Va à l'essentiel, intègre les faits clés (noms, chiffres utiles) et assure une progression naturelle avec de courtes transitions. " +
+        "Évite les citations longues; si nécessaire, intègre une courte citation au sein d'une phrase. " +
+        "Longueur ciblée: 700 à 1200 caractères."
+      )
+      : (
+        "First, clean the source text to remove ads/CTAs/cookies/navigation and any non‑editorial content.\n\n" +
+        "From this cleaned text, write a NARRATIVE SUMMARY in English suitable for audio: 6–10 sentences, fluent, no headings, no bullets, no section labels, no emojis. " +
+        "Focus on key facts (proper nouns, meaningful numbers) and provide a natural flow with brief transitions. " +
+        "Avoid long quotes; if needed, weave a short quote into a sentence. " +
+        "Target length: 700–1200 characters."
+      );
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-nano",
+      input: `${prompt}\n\n${input}`,
+    }),
+    signal: controller.signal,
+  });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
+  }
+  const json: unknown = await res.json();
+  const text = extractTextFromResponses(json);
+  if (!text) {
+    const details = {
+      keys: Object.keys(json || {}),
+      preview: JSON.stringify(json)?.slice(0, 300),
+    };
+    throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
+  }
+  return text.trim();
+}
+
 function buildDigestInput(items: { title: string; snippet?: string }[]): string {
   const parts = items.map((it, idx) => {
     const snip = (it.snippet || "").replace(/\s+/g, " ").trim().slice(0, 300);
     return `${idx + 1}. ${it.title}${snip ? ` — ${snip}` : ""}`;
   });
   return parts.join("\n");
+}
+
+async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientKey?: string): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const prompt =
+    lang === "fr"
+      ? "À partir d'une liste de titres et d'extraits d'articles du jour, produis un court bulletin structuré (4 à 7 phrases) en français, regroupant les grands thèmes et reliant les infos de manière fluide."
+      : "From a list of today's headlines and snippets, produce a short structured bulletin (4-7 sentences) summarizing key themes in the requested language.";
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-nano",
+      input: `${prompt}\n\n${input}`,
+    }),
+    signal: controller.signal,
+  });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI gpt-5-nano: ${errText || res.statusText}`);
+  }
+  const json: unknown = await res.json();
+  const text = extractTextFromResponses(json);
+  if (!text) {
+    const details = {
+      keys: Object.keys(json || {}),
+      preview: JSON.stringify(json)?.slice(0, 300),
+    };
+    throw new ApiError(502, `Réponse vide du modèle: ${JSON.stringify(details)}`);
+  }
+  return text.trim();
 }
 
 function sanitizeContent(input: string): string {
@@ -275,6 +405,108 @@ function sanitizeContent(input: string): string {
   } catch {
     return input;
   }
+}
+
+function extractTextFromResponses(json: unknown): string {
+  if (!json || typeof json !== "object") return "";
+  // output_text
+  const outputText = (json as { output_text?: unknown }).output_text;
+  if (typeof outputText === "string" && outputText.trim()) return outputText;
+  // responses.output[].content[].text
+  const outputArr = Array.isArray((json as { output?: unknown }).output)
+    ? ((json as { output?: unknown }).output as unknown[])
+    : [];
+  for (const o of outputArr) {
+    const content = Array.isArray((o as { content?: unknown }).content)
+      ? ((o as { content?: unknown }).content as unknown[])
+      : [];
+    for (const c of content) {
+      const cText = (c as { text?: unknown }).text;
+      if (typeof cText === "string" && cText.trim()) return cText;
+      const nested = Array.isArray((c as { content?: unknown }).content)
+        ? ((c as { content?: unknown }).content as unknown[])
+        : [];
+      for (const cc of nested) {
+        const nText = (cc as { text?: unknown }).text;
+        if (typeof nText === "string" && nText.trim()) return nText;
+      }
+    }
+  }
+  // sometimes under json.content[] directly
+  const contentArr = Array.isArray((json as { content?: unknown }).content)
+    ? ((json as { content?: unknown }).content as unknown[])
+    : [];
+  for (const c of contentArr) {
+    const cText = (c as { text?: unknown }).text;
+    if (typeof cText === "string" && cText.trim()) return cText;
+  }
+  // chat completions fallback shapes
+  const choices = (json as { choices?: unknown }).choices;
+  const choice = Array.isArray(choices) ? (choices[0] as unknown) : undefined;
+  const messageContent = (choice as { message?: { content?: unknown } })?.message?.content;
+  if (typeof messageContent === "string" && messageContent.trim()) return messageContent;
+  const choiceText = (choice as { text?: unknown })?.text;
+  if (typeof choiceText === "string" && choiceText.trim()) return choiceText;
+  return "";
+}
+
+async function ttsWithTTS1HD(input: string, lang: string, clientKey?: string, clientVoice?: string, timeoutMs = 26000): Promise<string> {
+  const apiKey = clientKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Clé OpenAI manquante");
+
+  const allowedVoices = new Set([
+    "alloy",
+    "echo",
+    "fable",
+    "onyx",
+    "nova",
+    "shimmer",
+    "coral",
+    "verse",
+    "ballad",
+    "ash",
+    "sage",
+  ]);
+  const resolveVoice = (v?: string): string => {
+    if (v && allowedVoices.has(v)) return v;
+    return "alloy";
+  };
+  const voice = resolveVoice(typeof clientVoice === "string" ? clientVoice : undefined);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "tts-1-hd",
+      input,
+      voice,
+      format: "mp3",
+    }),
+    signal: controller.signal,
+  });
+  } catch {
+    clearTimeout(timer);
+    throw new ApiError(504, "TTS timeout");
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    let errText = "";
+    try {
+      const j = await res.json();
+      errText = j?.error?.message || JSON.stringify(j);
+    } catch {}
+    throw new ApiError(res.status, `OpenAI TTS: ${errText || res.statusText}`);
+  }
+  const arrayBuf = await res.arrayBuffer();
+  const base64 = Buffer.from(arrayBuf).toString("base64");
+  return base64;
 }
 
 

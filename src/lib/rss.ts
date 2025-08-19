@@ -1,6 +1,5 @@
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
-import { getUnsplashImage } from "./unsplash";
 
 export type ParsedEnclosure = {
   url?: string;
@@ -39,7 +38,6 @@ type ParseFeedOptions = {
   maxItems?: number;
   timeoutMs?: number;
   enrichOg?: boolean; // for advanced control; overrides fast behavior
-  unsplashKey?: string; // clé API Unsplash pour les images de fallback
 };
 
 export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<ParsedFeed> {
@@ -101,18 +99,6 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
       if (!image && item.link) {
         const yt = youtubeThumbnailFromLink(item.link);
         if (yt) image = yt;
-      }
-
-      // Fallback Unsplash: utiliser une image basée sur le titre de l'article
-      if (!image && !isFast && opts?.unsplashKey) {
-        try {
-          const keywords = item.title
-            .split(/[\s,.-]+/) // Séparer sur les espaces et la ponctuation
-            .filter(w => w.length > 3) // Garder les mots significatifs
-            .slice(0, 3) // Prendre les 3 premiers mots
-            .join(" ");
-          image = await getUnsplashImage(keywords, opts.unsplashKey);
-        } catch {}
       }
 
       const id = (item.guid as string) || `${item.link || ""}#${index}`;
