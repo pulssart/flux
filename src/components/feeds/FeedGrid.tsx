@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import useSWR from "swr";
-import { Image as ImageIcon, RefreshCcw, CalendarDays, Play, Loader2, Square, Copy, Check, Settings2 } from "lucide-react";
+import { Image as ImageIcon, RefreshCcw, CalendarDays, Copy, Check, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cacheImagesForItems, cacheImagesForFeed, loadFeedItemsFromCache, saveFeedItemsToCache } from "@/lib/feed-cache";
@@ -14,7 +14,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect } from "react";
 import { t, useLang } from "@/lib/i18n";
-import { ReaderModal } from "./ReaderModal";
+// ReaderModal supprimé (suppression fonctionnalités IA)
 
 type FeedGridProps = {
   feedIds: string[];
@@ -77,39 +77,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [filter, setFilter] = useState<"all" | "today">("all");
   const [manualRefresh, setManualRefresh] = useState(0);
 
-  // Lecture / génération audio (doivent être déclarés avant tout early-return)
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
-  // Identifiant spécial pour l'audio "digest du jour"
-  const DIGEST_ID = "__digest__";
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [readerOpen, setReaderOpen] = useState(false);
-  const [readerArticle, setReaderArticle] = useState<{ title: string; link?: string; pubDate?: string; image?: string } | null>(null);
 
   // (les helpers favicons sont maintenant portés en haut du fichier)
 
-  useEffect(() => {
-    const on = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { article?: Article } | undefined;
-      if (detail?.article) {
-        setReaderArticle({ title: detail.article.title, link: detail.article.link, pubDate: detail.article.pubDate, image: detail.article.image });
-        setReaderOpen(true);
-      }
-    };
-    window.addEventListener("flux:reader:open", on as EventListener);
-    return () => window.removeEventListener("flux:reader:open", on as EventListener);
-  }, []);
+  // Événements lecteur supprimés
 
-  function stopPlayback() {
-    try {
-      if (audioEl) {
-        audioEl.pause();
-        audioEl.currentTime = 0;
-      }
-    } catch {}
-    setPlayingId(null);
-  }
+  // Contrôles audio supprimés
 
   function isYouTubeUrl(url?: string): boolean {
     if (!url) return false;
@@ -163,191 +137,9 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     setVideoUrl(embed);
   }
 
-  async function playArticle(article: Article) {
-    // Consommer 1 token pour TTS article
-    try {
-      window.dispatchEvent(new Event("flux:ai:token:consume"));
-    } catch {}
-    if (!article.link) return;
-    try { console.info("[audio] start", { url: article.link, title: article.title }); } catch {}
-    setGeneratingId(article.id);
-    try {
-      // Résumé narratif: privilégier client si clé locale, sinon API serveur
-      let apiKey = "";
-      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-      try { console.info("[audio] path", { clientFirst: !!apiKey }); } catch {}
-      let narrative = "";
-      if (apiKey) {
-        // Client-first: extraire article puis résumer via OpenAI directement
-        const tFetch = Date.now();
-        const art = await fetch("/api/article", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: article.link }),
-        }).then(r => r.ok ? r.json() : Promise.reject(new Error("article-fail"))) as { contentHtml?: string };
-        const html = (art?.contentHtml || "").toString();
-        try { console.info("[audio] article.fetch.ok", { ms: Date.now() - tFetch, htmlLen: html.length }); } catch {}
-        const tmp = document.createElement("div");
-        tmp.innerHTML = html;
-        const base = tmp.textContent || tmp.innerText || "";
-        const cleaned = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
-        try { console.info("[audio] article.cleaned", { cleanedLen: cleaned.length }); } catch {}
-        const prompt = lang === "fr"
-          ? "Nettoie et écris un RÉSUMÉ NARRATIF audio en 6-10 phrases, fluide, sans puces, sans emoji.\n\n"
-          : "Write a NARRATIVE SUMMARY for audio in 6–10 sentences, fluent, no bullets, no emojis.\n\n";
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 10000);
-        const aiStart = Date.now();
-        const aiRes = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: "gpt-5-nano", input: `${prompt}${cleaned}` }),
-          signal: ctrl.signal,
-        }).catch(() => null);
-        clearTimeout(t);
-        try { console.info("[audio] client-ai.done", { ok: !!(aiRes && aiRes.ok), ms: Date.now() - aiStart }); } catch {}
-        if (aiRes && aiRes.ok) {
-          const j = await aiRes.json();
-          const text = (() => {
-            const ot = j?.output_text; if (typeof ot === "string" && ot.trim()) return ot;
-            const out = Array.isArray(j?.output) ? j.output : [];
-            for (const o of out) { const c = Array.isArray(o?.content) ? o.content : []; for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; } }
-            return "";
-          })();
-          narrative = text && text.trim() ? text.trim() : cleaned.slice(0, 800);
-          try { console.info("[audio] narrative", { len: (narrative || "").length }); } catch {}
-        } else {
-          narrative = cleaned.slice(0, 800);
-          try { console.warn("[audio] client-ai.failed -> using truncated text", { len: narrative.length }); } catch {}
-        }
-      } else {
-        // Secours: API serveur texte-only
-        const srvStart = Date.now();
-        const res = await fetch("/api/ai/summarize-tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: article.link, lang, textOnly: true, mode: "audio" }),
-        });
-        try { console.info("[audio] server.req.done", { status: res.status, ms: Date.now() - srvStart }); } catch {}
-        const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
-        if (!res.ok) {
-          const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
-          if (res.status === 401) toast.error(t(lang, "openAiMissing"));
-          else if (res.status === 400 || res.status === 422 || res.status === 502) toast.error((errJson?.error || t(lang, "articleExtractFailed")) + stage);
-          else if (res.status >= 500) toast.error((errJson?.error || t(lang, "serverGenError")) + stage);
-          throw new Error((errJson?.error || `Echec génération (${res.status})`) + stage);
-        }
-        const json = (await res.json()) as { text: string };
-        narrative = json.text || "";
-        try { console.info("[audio] narrative.server", { len: (narrative || "").length }); } catch {}
-      }
+  // Lecture audio supprimée
 
-      // Synthèse vocale (via /api/tts) — toujours côté client
-      if (!apiKey) {
-        try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-      }
-      // Même si pas de tokens, on tente avec la clé si dispo
-      if (!apiKey) { try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {} }
-      if (!apiKey) { toast.error(t(lang, "openAiMissing")); return; }
-      const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
-      const controller = new AbortController();
-      const tTimeout = setTimeout(() => controller.abort(), 20000);
-      const ttsStart = Date.now();
-      const ttsRes = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: narrative, lang, apiKey, voice }),
-        signal: controller.signal,
-      });
-      clearTimeout(tTimeout);
-      try { console.info("[audio] tts.req.done", { status: ttsRes.status, ms: Date.now() - ttsStart }); } catch {}
-      if (!ttsRes.ok) {
-        const e = await ttsRes.text().catch(() => "");
-        throw new Error(`TTS failed: ${e || ttsRes.status}`);
-      }
-      const ttsJson = (await ttsRes.json()) as { audio: string };
-      try { console.info("[audio] tts.ok", { audioLen: (ttsJson?.audio || "").length }); } catch {}
-      const blob = base64ToBlob(ttsJson.audio, "audio/mpeg");
-      const url = URL.createObjectURL(blob);
-      if (audioEl) { try { audioEl.pause(); } catch {} }
-      const audio = new Audio(url);
-      setAudioEl(audio);
-      setPlayingId(article.id);
-      audio.onended = () => {
-        setPlayingId((pid) => (pid === article.id ? null : pid));
-        try { URL.revokeObjectURL(url); } catch {}
-      };
-      await audio.play();
-      toast.success(t(lang, "playbackStarted"));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGeneratingId((gid) => (gid === article.id ? null : gid));
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function playDigestForToday() {
-    // Récupère uniquement les articles d'aujourd'hui (toutes colonnes)
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    const todays = (data?.items || []).filter((a) => {
-      if (!a.pubDate) return false;
-      const d = new Date(a.pubDate);
-      return d >= start && d <= end;
-    });
-    if (todays.length === 0) {
-      toast.error(t(lang, "noArticlesToday"));
-      return;
-    }
-    try { console.info("[digest] start", { items: todays.length }); } catch {}
-    setGeneratingId(DIGEST_ID);
-    try {
-      let apiKey = "";
-      try {
-        apiKey = localStorage.getItem("flux:ai:openai") || "";
-      } catch {}
-      const voice = localStorage.getItem("flux:ai:voice") || undefined;
-      const items = todays.slice(0, 30).map((a) => ({ title: a.title, snippet: a.contentSnippet }));
-      const sourceTitle = getHeaderTitle(feeds.map((f) => ({ title: f.title, url: f.url })));
-      const srvStart = Date.now();
-      const res = await fetch("/api/ai/summarize-tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, sourceTitle, lang, apiKey: apiKey || undefined, voice }),
-      });
-      try { console.info("[digest] server.req.done", { status: res.status, ms: Date.now() - srvStart }); } catch {}
-      const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
-      if (!res.ok) {
-        const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
-        if (res.status === 401) {
-          toast.error(t(lang, "openAiMissing"));
-        } else if (res.status === 400 || res.status === 422 || res.status === 502) {
-          toast.error((errJson?.error || t(lang, "dailySummaryFailed")) + stage);
-        } else if (res.status >= 500) {
-          toast.error((errJson?.error || t(lang, "serverGenError")) + stage);
-        }
-        throw new Error((errJson?.error || `Echec génération audio (${res.status})`) + stage);
-      }
-      const json = (await res.json()) as { audio: string; text: string };
-      try { console.info("[digest] server.ok", { audioLen: (json?.audio || "").length, textLen: (json?.text || "").length }); } catch {}
-      if (audioEl) {
-        try { audioEl.pause(); } catch {}
-      }
-      const audio = new Audio(`data:audio/mp3;base64,${json.audio}`);
-      setAudioEl(audio);
-      setPlayingId(DIGEST_ID);
-      audio.onended = () => setPlayingId((pid) => (pid === DIGEST_ID ? null : pid));
-      await audio.play();
-      toast.success(t(lang, "playbackStarted"));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGeneratingId((gid) => (gid === DIGEST_ID ? null : gid));
-    }
-  }
+  // Digest audio supprimé
 
   type BatchResponse = { items: Article[] };
   // Pré-remplir avec cache local (client) si dispo, puis revalider chaque heure
@@ -399,7 +191,6 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
 
   const headerTitle = getHeaderTitle(feeds.map((f) => ({ title: f.title, url: f.url })));
 
-  // Lecture / génération audio (au niveau article uniquement)
   const featured: Article | undefined = articles[0];
   const rest: Article[] = articles.slice(1);
 
@@ -464,23 +255,12 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
           {featured && (
         <FeaturedArticleCard
               article={featured}
-              isGenerating={generatingId === featured.id}
-              isPlaying={playingId === featured.id}
-          onPlay={() => void playArticle(featured)}
           onOpenVideo={() => openVideoOverlay(featured.link)}
-              onStop={() => stopPlayback()}
             />
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {rest.map((a) => (
-          <ArticleCard
-                key={a.id}
-                article={a}
-                isGenerating={generatingId === a.id}
-                isPlaying={playingId === a.id}
-            onPlay={() => void playArticle(a)}
-                onStop={() => stopPlayback()}
-              />
+          <ArticleCard key={a.id} article={a} />
             ))}
           </div>
         </>
@@ -501,13 +281,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
           ) : null}
         </DialogContent>
       </Dialog>
-      {/* Gestion ouverture lecteur via event */}
-      {/* Installer le listener une seule fois */}
-      <ReaderModal
-        open={readerOpen}
-        onOpenChange={(o) => setReaderOpen(o)}
-        article={readerArticle}
-      />
+      {/* Lecteur supprimé */}
     </div>
   );
 }
@@ -532,7 +306,7 @@ function SkeletonGrid() {
   );
 }
 
-function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { article: Article; isGenerating: boolean; isPlaying: boolean; onPlay: () => void; onStop: () => void }) {
+function ArticleCard({ article }: { article: Article }) {
   // util locales retirées (non utilisées dans cette carte)
   const [lang] = useLang();
   const [copied, setCopied] = useState(false);
@@ -601,68 +375,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
               <TooltipContent>{copied ? t(lang, "linkCopied") : t(lang, "copyLink")}</TooltipContent>
             </Tooltip>
           ) : null}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className={`absolute right-2 top-12 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity ${hasHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const custom = new CustomEvent("flux:reader:open", { detail: { article } });
-                  window.dispatchEvent(custom);
-                }}
-              >
-                <span className="sr-only">{t(lang, "openReader")}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                  <path d="M4 5a2 2 0 0 1 2-2h6a1 1 0 1 1 0 2H6v12h6a1 1 0 1 1 0 2H6a2 2 0 0 1-2-2V5zm12.293 1.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3A1 1 0 1 1 16.293 13H11a1 1 0 1 1 0-2h5.293l-1.586-1.586a1 1 0 0 1 0-1.414z" />
-                </svg>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t(lang, "openReader")}</TooltipContent>
-          </Tooltip>
-          {/* Bouton Play / Stop / Loader */}
-          {!isPlaying && !isGenerating && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={`absolute right-2 bottom-2 transition-opacity rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 ${hasHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onPlay();
-                  }}
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{t(lang, "playAudioSummary")}</TooltipContent>
-            </Tooltip>
-          )}
-          {isGenerating && (
-            <span className="absolute right-2 bottom-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm">
-              <Loader2 className="w-4 h-4 animate-spin" />
-            </span>
-          )}
-          {isPlaying && !isGenerating && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="absolute right-2 bottom-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onStop();
-                  }}
-                >
-                  <Square className="w-4 h-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{t(lang, "stop")}</TooltipContent>
-            </Tooltip>
-          )}
+          {/* Contrôles lecteur et audio supprimés */}
         </div>
         <CardContent className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
           <div className="text-xs text-muted-foreground shrink-0 flex items-center gap-2">
@@ -683,7 +396,7 @@ function ArticleCard({ article, isGenerating, isPlaying, onPlay, onStop }: { art
   );
 }
 
-function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenVideo, onStop }: { article: Article; isGenerating: boolean; isPlaying: boolean; onPlay: () => void; onOpenVideo: () => void; onStop: () => void }) {
+function FeaturedArticleCard({ article, onOpenVideo }: { article: Article; onOpenVideo: () => void }) {
   const localIsYouTubeUrl = (url?: string) => {
     try {
       if (!url) return false;
@@ -740,10 +453,6 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
         if (localIsYouTubeUrl(article.link)) {
           e.preventDefault();
           onOpenVideo();
-        } else if (!localIsProductHuntUrl(article.link)) {
-          e.preventDefault();
-          const custom = new CustomEvent("flux:reader:open", { detail: { article } });
-          window.dispatchEvent(custom);
         }
       }}
     >
@@ -797,44 +506,7 @@ function FeaturedArticleCard({ article, isGenerating, isPlaying, onPlay, onOpenV
               {article.contentSnippet}
             </p>
           )}
-          <div className="mt-3">
-            {!isPlaying && !isGenerating && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 backdrop-blur-sm hover:bg-black/70"
-                title="Lire le résumé audio"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onPlay();
-                }}
-              >
-                <Play className="w-4 h-4" />
-                <span>Lire</span>
-              </button>
-            )}
-            {isGenerating && (
-              <span className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 backdrop-blur-sm">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Génération…</span>
-              </span>
-            )}
-            {isPlaying && !isGenerating && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 backdrop-blur-sm hover:bg-black/70"
-                title="Stop"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onStop();
-                }}
-              >
-                <Square className="w-4 h-4" />
-                <span>Stop</span>
-              </button>
-            )}
-          </div>
+          <div className="mt-3" />
         </div>
       </div>
     </a>

@@ -46,16 +46,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const fillingImagesRef = useRef(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const prevThemeRef = useRef<string | undefined>(undefined);
-  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
-  const [digestPlaying, setDigestPlaying] = useState(false);
-  const [digestGenerating, setDigestGenerating] = useState(false);
-  const [digestPrepared, setDigestPrepared] = useState(false);
-  // IDs d'article (utilisés par les contrôles audio internes)
-  const [articlePlayingId, setArticlePlayingId] = useState<string | null>(null);
-  const [articleGeneratingId, setArticleGeneratingId] = useState<string | null>(null);
-  const [preparedArticleId, setPreparedArticleId] = useState<string | null>(null);
-  const [aiKeyOpen, setAiKeyOpen] = useState(false);
-  const [aiKeyInput, setAiKeyInput] = useState("");
+  // Suppression audio/IA: états retirés
   useEffect(() => {
     (async () => {
       try {
@@ -102,154 +93,13 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     }
   }
 
-  async function playTodayDigest() {
-    // Si un audio a déjà été généré mais bloqué par l'autoplay mobile, retenter immédiatement
-    if (digestPrepared && audioEl) {
-      try {
-        audioEl.onended = () => setDigestPlaying(false);
-        await audioEl.play();
-        setDigestPrepared(false);
-        setDigestPlaying(true);
-        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
-        return;
-      } catch {
-        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
-        return;
-      }
-    }
-    try {
-      // Consommer 1 token
-      try { window.dispatchEvent(new Event("flux:ai:token:consume")); } catch {}
-      const items = (content?.items || []).slice(0, 30).map((it) => ({ title: it.title, snippet: it.summary }));
-      if (!items.length) {
-        toast.error(lang === "fr" ? "Aucun article pour aujourd'hui" : "No items for today");
-        return;
-      }
-      setDigestGenerating(true);
-      let apiKey = "";
-      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-      const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
-      const sourceTitle = `${dateTitle}`;
-      const res = await fetch("/api/ai/summarize-tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, sourceTitle, lang, apiKey: apiKey || undefined, voice }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        if (res.status === 401) {
-          try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
-          setAiKeyOpen(true);
-        }
-        toast.error((j?.error as string) || (lang === "fr" ? "Échec de génération audio" : "Audio generation failed"));
-        return;
-      }
-      const j = (await res.json()) as { audio: string };
-      if (audioEl) { try { audioEl.pause(); } catch {} }
-      const blob = base64ToBlob(j.audio, "audio/mpeg");
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      setAudioEl(audio);
-      setDigestPlaying(true);
-      audio.onended = () => { setDigestPlaying(false); try { URL.revokeObjectURL(url); } catch {} };
-      try {
-        await audio.play();
-        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
-      } catch {
-        // Laisser l'audio prêt et demander un second appui
-        setDigestPlaying(false);
-        setDigestPrepared(true);
-        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
-        return;
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDigestGenerating(false);
-    }
-  }
+  // Audio digest supprimé
 
-  function stopDigest() {
-    try {
-      if (audioEl) {
-        audioEl.pause();
-        try { if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src); } catch {}
-      }
-    } catch {}
-    setDigestPlaying(false);
-  }
+  // stopDigest supprimé
 
-  async function playArticleAudio(link?: string | null, id?: string) {
-    if (!link) return;
-    const key = id || link;
-    // Si l'audio était prêt mais bloqué, retenter sans regénérer ni reconsommer
-    if (preparedArticleId === key && audioEl) {
-      try {
-        setArticlePlayingId(key);
-        audioEl.onended = () => setArticlePlayingId((cur) => (cur === key ? null : cur));
-        await audioEl.play();
-        setPreparedArticleId(null);
-        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
-        return;
-      } catch {
-        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
-        return;
-      }
-    }
-    // Consommer un token
-    try { window.dispatchEvent(new Event("flux:ai:token:consume")); } catch {}
-    setArticleGeneratingId(key);
-    try {
-      let apiKey = "";
-      try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-      const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
-      const res = await fetch("/api/ai/summarize-tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: link, lang, apiKey: apiKey || undefined, voice, mode: "audio", textOnly: false }),
-      });
-      const j = await res.json().catch(() => null);
-      if (!res.ok || !j?.audio) {
-        if (res.status === 401) {
-          try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
-          setAiKeyOpen(true);
-        }
-        toast.error((j?.error as string) || (lang === "fr" ? "Échec de génération audio" : "Audio generation failed"));
-        return;
-      }
-      if (audioEl) { try { audioEl.pause(); } catch {} }
-      const blob = base64ToBlob(j.audio as string, "audio/mpeg");
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      setAudioEl(audio);
-      setArticlePlayingId(key);
-      audio.onended = () => { setArticlePlayingId((cur) => (cur === key ? null : cur)); try { URL.revokeObjectURL(url); } catch {} };
-      try {
-        await audio.play();
-        toast.success(lang === "fr" ? "Lecture démarrée" : "Playback started");
-      } catch {
-        // Laisser l'audio prêt et demander un second appui
-        setArticlePlayingId((cur) => (cur === key ? null : cur));
-        setPreparedArticleId(key);
-        toast.error(lang === "fr" ? "Touchez à nouveau pour lire (autoplay bloqué)" : "Tap again to play (autoplay blocked)");
-        return;
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setArticleGeneratingId((cur) => (cur === key ? null : cur));
-    }
-  }
+  // Lecture audio article supprimée
 
-  function stopArticleAudio(id?: string) {
-    try {
-      if (audioEl) {
-        audioEl.pause();
-        try { if (audioEl.src && audioEl.src.startsWith("blob:")) URL.revokeObjectURL(audioEl.src); } catch {}
-      }
-    } catch {}
-    setArticlePlayingId((cur) => (id && cur !== id ? cur : null));
-  }
+  // stopArticleAudio supprimé
 
   function proxyImage(url?: string | null): string | null {
     if (!url) return null;
@@ -852,16 +702,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
               >
                 <Settings2 className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border hover:bg-foreground hover:text-background"
-                onClick={() => {
-                  try { setAiKeyInput(localStorage.getItem("flux:ai:openai") || ""); } catch { setAiKeyInput(""); }
-                  setAiKeyOpen(true);
-                }}
-              >
-                {lang === "fr" ? "Clé IA" : "AI Key"}
-              </button>
+              {/* Bouton Clé IA supprimé */}
               {!sessionEmail ? (
                 <button
                   type="button"
@@ -1647,50 +1488,12 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           }
         `}</style>
       ) : null}
-      {/* Dialog clé OpenAI (mobile) */}
-      <AiKeyDialog
-        open={aiKeyOpen}
-        onOpenChange={(o) => setAiKeyOpen(o)}
-        value={aiKeyInput}
-        onChange={(v) => setAiKeyInput(v)}
-        onSave={() => {
-          try { localStorage.setItem("flux:ai:openai", (aiKeyInput || "").trim()); } catch {}
-          setAiKeyOpen(false);
-          toast.success(lang === "fr" ? "Clé OpenAI enregistrée" : "OpenAI key saved");
-        }}
-        lang={lang}
-      />
+      {/* Dialog clé OpenAI supprimé */}
     </article>
   );
 }
 
-// Petit dialogue pour saisir/mettre à jour la clé OpenAI côté mobile
-function AiKeyDialog({ open, onOpenChange, value, onChange, onSave, lang }: { open: boolean; onOpenChange: (o: boolean) => void; value: string; onChange: (v: string) => void; onSave: () => void; lang: string }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{lang === "fr" ? "Clé OpenAI" : "OpenAI Key"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Input
-            type="password"
-            placeholder="sk-..."
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          />
-          <div className="text-xs text-muted-foreground">
-            {lang === "fr" ? "La clé reste stockée localement sur votre appareil et n'est jamais envoyée au serveur." : "The key is stored locally on your device and never sent to the server."}
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{lang === "fr" ? "Annuler" : "Cancel"}</Button>
-            <Button onClick={onSave}>{lang === "fr" ? "Enregistrer" : "Save"}</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// Dialog clé OpenAI supprimé
 
 function base64ToBlob(base64: string, type = "application/octet-stream"): Blob {
   try {
