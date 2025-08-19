@@ -72,7 +72,17 @@ export async function GET(req: Request) {
 
     const res = await fetchWithRedirects(target.toString(), 5);
     if (!res || !res.ok) {
-      return NextResponse.json({ error: `Fetch failed${res ? `: ${res.status}` : ""}` }, { status: 502 });
+      // Fallback: renvoyer un PNG transparent pour éviter les images cassées
+      const transparentPng = Uint8Array.from(atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/ahQxGIAAAAASUVORK5CYII="
+      ), c => c.charCodeAt(0)).buffer;
+      return new NextResponse(transparentPng, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable",
+        },
+      });
     }
 
     const contentType = res.headers.get("content-type") || "application/octet-stream";
@@ -88,8 +98,17 @@ export async function GET(req: Request) {
       },
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Fallback total: PNG transparent
+    const transparentPng = Uint8Array.from(atob(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/ahQxGIAAAAASUVORK5CYII="
+    ), c => c.charCodeAt(0)).buffer;
+    return new NextResponse(transparentPng, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable",
+      },
+    });
   }
 }
 
