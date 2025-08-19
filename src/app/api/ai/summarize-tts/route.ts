@@ -15,8 +15,8 @@ function getTraceId(req: NextRequest): string {
   const incoming = req.headers.get("x-trace-id");
   if (incoming) return incoming;
   try {
-    // @ts-ignore - global crypto in Node 18+
-    if (typeof crypto?.randomUUID === "function") return crypto.randomUUID();
+    const anyCrypto = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
+    if (anyCrypto && typeof anyCrypto.randomUUID === "function") return anyCrypto.randomUUID();
   } catch {}
   return `trace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
