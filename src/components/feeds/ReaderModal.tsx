@@ -73,29 +73,12 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
     } catch { setDateStr(""); }
     const controller = new AbortController();
     (async () => {
+      const interval = setInterval(() => setLoadingStep((s) => (s + 1) % 6), 1200);
       try {
         let apiKey = "";
         try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-        // petit carousel de messages pendant le fetch
-        const interval = setInterval(() => setLoadingStep((s) => (s + 1) % 6), 1200);
-        const res = await fetch("/api/ai/summarize-tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: article.link, lang, apiKey: apiKey || undefined, textOnly: true }),
-          signal: controller.signal,
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || "summary failed");
-        const text = (json?.text as string) || "";
-        setSummary(text);
-        clearInterval(interval);
-      } catch {
-        // Fallback client: récupérer l'article et résumer côté navigateur via la clé OpenAI locale
-        try {
-          let apiKey = "";
-          try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
-          if (!apiKey) throw new Error("no-api-key");
-          // 1) Récupérer du texte lisible
+        if (apiKey) {
+          // Mode radical: résumé côté client (bypass serveur)
           const art = await fetch("/api/article", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -107,13 +90,11 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
           tmp.innerHTML = html;
           const base = tmp.textContent || tmp.innerText || "";
           const cleaned = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
-          if (!cleaned || cleaned.length < 120) throw new Error("too-short");
-          // 2) Appel très léger au modèle
           const prompt = lang === "fr"
             ? "Résume clairement et factuellement en 6 à 10 puces + une phrase TL;DR en tête. Pas d'emojis.\n\n"
             : "Summarize clearly and factually: TL;DR one sentence + 6-10 bullets. No emojis.\n\n";
           const ctrl = new AbortController();
-          const t = setTimeout(() => ctrl.abort(), 12000);
+          const t = setTimeout(() => ctrl.abort(), 11000);
           const aiRes = await fetch("https://api.openai.com/v1/responses", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -126,23 +107,29 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             const text = (() => {
               const ot = j?.output_text; if (typeof ot === "string" && ot.trim()) return ot;
               const out = Array.isArray(j?.output) ? j.output : [];
-              for (const o of out) {
-                const c = Array.isArray(o?.content) ? o.content : [];
-                for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; }
-              }
+              for (const o of out) { const c = Array.isArray(o?.content) ? o.content : []; for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; } }
               return "";
             })();
-            if (text && text.trim()) {
-              setSummary(text.trim());
-              return;
-            }
+            setSummary(text && text.trim() ? text.trim() : cleaned.slice(0, 800));
+          } else {
+            setSummary(cleaned.slice(0, 800));
           }
-          // Dernier recours: tronquer le texte propre
-          setSummary(cleaned.slice(0, 800));
-        } catch {
-          setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");
+        } else {
+          // Pas de clé: fallback API serveur (peut être partiel mais évite blocage UX)
+          const res = await fetch("/api/ai/summarize-tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: article.link, lang, textOnly: true }),
+            signal: controller.signal,
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json?.error || "summary failed");
+          setSummary(((json?.text as string) || "").toString());
         }
+      } catch {
+        setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");
       } finally {
+        clearInterval(interval);
         setLoading(false);
       }
     })();
