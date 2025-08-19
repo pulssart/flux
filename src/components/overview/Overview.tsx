@@ -783,6 +783,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     const firstRow = takeFromPool(3);
     const secondRow = takeFromPool(3);
     const afterRows = takeFromPool(4); // 1 focus + 1 side (+2 marge si besoin)
+    // Nouvelles lignes supplémentaires en fin de résumé
+    const thirdRow = takeFromPool(3);
+    const fourthRow = takeFromPool(3);
     const lastRowFocus = afterRows[0];
     let lastRowSide = afterRows[1];
     // Si focus large sans carte adjacente, compléter depuis le pool restant
@@ -1182,6 +1185,74 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                     {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
                   </div>
                   {/* Contrôles lecture IA retirés sur mobile */}
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Lignes supplémentaires: 3ème et 4ème lignes de 3 cartes */}
+        {generating ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="relative overflow-hidden border border-foreground/10 rounded-xl sm:h-[350px] flex flex-col">
+                <Skeleton className="h-[200px] w-full" />
+                <div className="px-3 py-2 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : thirdRow.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {thirdRow.map((it, idx) => (
+              <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(it.image) ? (
+                      <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">{it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}</div>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
+                    {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : null}
+        {generating ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="relative overflow-hidden border border-foreground/10 rounded-xl sm:h-[350px] flex flex-col">
+                <Skeleton className="h-[200px] w-full" />
+                <div className="px-3 py-2 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-[90%]" />
+                  <Skeleton className="h-4 w-[70%]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : fourthRow.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {fourthRow.map((it, idx) => (
+              <a key={idx} href={it.link || undefined} target="_blank" rel="noreferrer" className="block h-full">
+                <div className="relative overflow-hidden border border-foreground/10 hover:border-foreground/30 transition-colors rounded-xl sm:h-[350px] flex flex-col group">
+                  <div className="relative h-[200px] bg-muted overflow-hidden group">
+                    {proxyImage(it.image) ? (
+                      <img src={proxyImage(it.image) as string} alt="" className="block object-cover w-full h-full" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
+                    <div className="text-xs text-muted-foreground">{it.pubDate ? format(new Date(it.pubDate as string), "d MMM yyyy", { locale: lang === 'fr' ? frLocale : enUS }) : null}</div>
+                    <h3 className="font-medium leading-snug line-clamp-2 pb-px">{it.title}</h3>
+                    {it.summary ? (<p className="text-[13px] leading-snug text-muted-foreground line-clamp-3">{it.summary}</p>) : null}
+                  </div>
                 </div>
               </a>
             ))}
