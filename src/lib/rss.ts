@@ -72,11 +72,20 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
       const anyItem = item as Record<string, unknown>;
       const html = (anyItem["content:encoded"] as string | undefined) || (anyItem.content as string | undefined) || "";
 
-      let image =
-        extractImageFromHtml(html, item.link) ||
-        extractImageFromEnclosure(item) ||
-        extractImageFromMedia(anyItem) ||
-        extractImageFromItunes(anyItem);
+      // Extraire l'image du contenu HTML en priorité
+      let image = null;
+      
+      // 1. Chercher dans le contenu HTML
+      if (html) {
+        image = extractImageFromHtml(html, item.link);
+      }
+      
+      // 2. Si pas d'image dans le HTML, essayer les autres sources
+      if (!image) {
+        image = extractImageFromEnclosure(item) ||
+               extractImageFromMedia(anyItem) ||
+               extractImageFromItunes(anyItem);
+      }
 
       let ogMeta: OgMetadata | null = null;
       if (enrichOg) {
@@ -170,11 +179,20 @@ function normalizeImageUrl(u?: string | null): string | null {
 function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
+  
   // Essayer differents attributs et variantes lazy
-  const candidates: string[] = [];
+  const candidates: Array<{ url: string; width?: number; height?: number }> = [];
+  
+  // Parcourir toutes les images
   $("img").each((_, el) => {
     const $el = $(el);
-    const attrs = [
+    
+    // Récupérer les dimensions
+    const width = parseInt($el.attr("width") || "0", 10);
+    const height = parseInt($el.attr("height") || "0", 10);
+    
+    // Récupérer toutes les sources possibles d'URL
+    const sources = [
       $el.attr("src"),
       $el.attr("data-src"),
       $el.attr("data-lazy-src"),
@@ -183,18 +201,49 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
       $el.attr("data-actualsrc"),
       $el.attr("data-src-large"),
     ].filter(Boolean) as string[];
+    
+    // Ajouter le meilleur srcset si disponible
     const srcset = pickBestFromSrcset($el.attr("srcset") || $el.attr("data-srcset") || null);
-    if (srcset) attrs.push(srcset);
-    candidates.push(...attrs);
+    if (srcset) sources.push(srcset);
+    
+    // Ajouter chaque source comme candidat avec ses dimensions
+    sources.forEach(url => {
+      candidates.push({ url, width, height });
+    });
   });
-  // Prendre aussi <source srcset> dans <picture>
+  
+  // Ajouter les sources des balises picture
   $("picture source").each((_, el) => {
     const $el = $(el);
     const srcset = pickBestFromSrcset($el.attr("srcset") || null);
-    if (srcset) candidates.push(srcset);
+    if (srcset) {
+      candidates.push({ url: srcset });
+    }
   });
-  const src = candidates.find(Boolean) || null;
-  const normalized = normalizeImageUrl(src);
+  
+  // Filtrer les images non pertinentes
+  const validCandidates = candidates.filter(({ url, width, height }) => {
+    const urlLower = url.toLowerCase();
+    
+    // Ignorer les petites images si on connaît leurs dimensions
+    if ((width || height) && width < 100 && height < 100) return false;
+    
+    // Ignorer les images probablement décoratives
+    return !urlLower.includes("avatar") &&
+           !urlLower.includes("icon") &&
+           !urlLower.includes("logo") &&
+           !urlLower.includes("button") &&
+           !urlLower.includes("badge") &&
+           !urlLower.endsWith(".svg") &&
+           !urlLower.includes("1x1");
+  });
+  
+  // Prendre la première image valide
+  const bestCandidate = validCandidates[0]?.url;
+  if (!bestCandidate) return null;
+  
+  // Normaliser et résoudre l'URL
+  const normalized = normalizeImageUrl(bestCandidate);
   return normalized ? resolveUrl(normalized, baseLink) : null;
 }
 
