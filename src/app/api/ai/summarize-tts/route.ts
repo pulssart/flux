@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Budget temps strict pour éviter 504 Netlify
-    const REQUEST_BUDGET_MS = 9000;
+    const REQUEST_BUDGET_MS = 8000;
     const startedAt = Date.now();
     const timeLeft = () => Math.max(600, REQUEST_BUDGET_MS - (Date.now() - startedAt));
 
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, Math.min(3000, timeLeft()));
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, Math.min(2500, timeLeft()));
         return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
       } catch (e: unknown) {
         // Fallback: retourner le texte même si la synthèse audio échoue/timeout
@@ -228,7 +228,7 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
 
   // Utiliser l'API Responses pour gpt-5-nano
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 18000);
+  const timer = setTimeout(() => controller.abort(), 7000);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
@@ -288,7 +288,7 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
       );
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 18000);
+  const timer = setTimeout(() => controller.abort(), 7000);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
@@ -382,7 +382,7 @@ async function summarizeDailyDigestWithGPT5(input: string, lang: string, clientK
       : "From a list of today's headlines and snippets, produce a short structured bulletin (4-7 sentences) summarizing key themes in the requested language.";
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 18000);
+  const timer = setTimeout(() => controller.abort(), 7000);
   let res: Response;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
