@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
 
     // Budget temps strict pour éviter 504 Netlify
     // Budget global un peu plus large pour laisser une vraie chance au modèle
-    const REQUEST_BUDGET_MS = 12000;
+    // Étendre un peu le budget en mode textOnly pour maximiser les chances d'une réponse GPT
+    const REQUEST_BUDGET_MS = textOnly ? 20000 : 12000;
     const startedAt = Date.now();
     const timeLeft = () => Math.max(600, REQUEST_BUDGET_MS - (Date.now() - startedAt));
     const traceId = getTraceId(req);
@@ -114,15 +115,11 @@ export async function POST(req: NextRequest) {
         summary = await summarizeWithRetries(limited, lang, apiKey, mode, timeLeft(), traceId);
         logEvent(traceId, "summary.ok", { outputLength: summary.length, timeLeft: timeLeft() });
       } catch (e: unknown) {
-        // Quel que soit l'échec, retourner un fallback texte pour éviter 504
+        // En mode textOnly: pas de fallback 200 → laisser le client déclencher un fallback local si clé
         const message = e instanceof Error ? e.message : String(e);
         logEvent(traceId, "summary.error", { message, timeLeft: timeLeft() });
-        // Fallback minimal pour permettre l'injection texte côté client même en textOnly
-        const fallback = limited.slice(0, 800);
-        return NextResponse.json(
-          { text: fallback, partial: true, reason: "summary-fallback", error: message, traceId },
-          { status: 200, headers: { "x-trace-id": traceId } }
-        );
+        const status = e instanceof ApiError && e.status === 504 ? 504 : 502;
+        return NextResponse.json({ error: message, stage: "summary", traceId }, { status, headers: { "x-trace-id": traceId } });
       }
 
       if (textOnly) {

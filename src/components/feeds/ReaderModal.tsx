@@ -98,8 +98,9 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
           }
         } catch {}
         if (!res.ok) {
-          // Fallback strict si timeout serveur et clé locale dispo
-          if (res.status === 504 && apiKey) {
+          // Fallback strict si échec summary (signalé par le serveur) ou timeout 504, et si clé locale dispo
+          const stage = json?.stage;
+          if ((res.status === 504 || stage === "summary") && apiKey) {
             try {
               const art = await fetch("/api/article", {
                 method: "POST",
