@@ -1,3 +1,4 @@
+// TTS désactivé
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,21 +19,7 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
-  try {
-    const { text, apiKey, voice } = (await req.json()) as Body;
-    if (!text || typeof text !== "string" || text.trim().length === 0) {
-      return NextResponse.json({ error: "missing text" }, { status: 400 });
-    }
-    const key = apiKey || process.env.OPENAI_API_KEY;
-    if (!key) return NextResponse.json({ error: "missing api key" }, { status: 401 });
-
-    // Limiter la longueur envoyée au TTS pour tenir dans les timeouts Netlify (≈10-26s)
-    const audioBase64 = await ttsWithOpenAI(text.slice(0, 1800), key, voice);
-    return NextResponse.json({ audio: audioBase64 }, { status: 200, headers: corsHeaders() });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: e instanceof ApiError ? e.status : 500, headers: corsHeaders() });
-  }
+  return NextResponse.json({ error: "TTS disabled" }, { status: 410, headers: corsHeaders() });
 }
 
 export async function OPTIONS() {

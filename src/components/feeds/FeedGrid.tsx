@@ -405,14 +405,7 @@ function FeaturedArticleCard({ article, onOpenVideo }: { article: Article; onOpe
       return h === "youtube.com" || h === "youtu.be" || h === "m.youtube.com" || h.endsWith("youtube-nocookie.com");
     } catch { return false; }
   };
-  const localIsProductHuntUrl = (url?: string) => {
-    try {
-      if (!url) return false;
-      const u = new URL(url);
-      const h = u.hostname.replace(/^www\./, "");
-      return h === "producthunt.com" || h.endsWith(".producthunt.com");
-    } catch { return false; }
-  };
+  // util supprimée: localIsProductHuntUrl
   const [lang] = useLang();
   const [copied, setCopied] = useState(false);
   const { luminance, overlayCss } = useImageLuminance(article.image);
