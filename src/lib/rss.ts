@@ -369,7 +369,13 @@ const UNSPLASH_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 async function findUnsplashImage(query: string, timeoutMs = 2500): Promise<string | null> {
   try {
-    const q = query.toLowerCase().slice(0, 140);
+    const q = query
+      .toLowerCase()
+      .replace(/[:|–—\-]+/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 140);
     const cached = UNSPLASH_CACHE.get(q);
     const now = Date.now();
     if (cached && now - cached.savedAt < UNSPLASH_TTL_MS) {
@@ -377,39 +383,42 @@ async function findUnsplashImage(query: string, timeoutMs = 2500): Promise<strin
     }
 
     const key = (process.env.UNSPLASH_ACCESS_KEY || process.env.NEXT_PUBLIC_UNSPLASH_KEY || "").toString().trim();
-    if (!key) {
-      UNSPLASH_CACHE.set(q, { savedAt: now, url: null });
-      return null;
+    if (key) {
+      const url = new URL("https://api.unsplash.com/search/photos");
+      url.searchParams.set("query", q);
+      url.searchParams.set("orientation", "landscape");
+      url.searchParams.set("content_filter", "high");
+      url.searchParams.set("per_page", "1");
+      url.searchParams.set("page", "1");
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Accept-Version": "v1",
+          Authorization: `Client-ID ${key}`,
+        },
+        signal: controller.signal,
+      }).catch(() => null);
+      clearTimeout(timer);
+      if (res && res.ok) {
+        const data = (await res.json()) as { results?: Array<{ urls?: { regular?: string; small?: string; thumb?: string } }> };
+        const first = (data.results || [])[0];
+        const chosen = first?.urls?.regular || first?.urls?.small || first?.urls?.thumb || null;
+        if (chosen) {
+          UNSPLASH_CACHE.set(q, { savedAt: now, url: chosen });
+          return chosen;
+        }
+      }
     }
 
-    const url = new URL("https://api.unsplash.com/search/photos");
-    url.searchParams.set("query", q);
-    url.searchParams.set("orientation", "landscape");
-    url.searchParams.set("content_filter", "high");
-    url.searchParams.set("per_page", "1");
-    url.searchParams.set("page", "1");
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "Accept-Version": "v1",
-        Authorization: `Client-ID ${key}`,
-      },
-      signal: controller.signal,
-    }).catch(() => null);
-    clearTimeout(timer);
-    if (!res || !res.ok) {
-      UNSPLASH_CACHE.set(q, { savedAt: now, url: null });
-      return null;
-    }
-    const data = (await res.json()) as { results?: Array<{ urls?: { regular?: string; small?: string; thumb?: string } }> };
-    const first = (data.results || [])[0];
-    const chosen = first?.urls?.regular || first?.urls?.small || first?.urls?.thumb || null;
-    UNSPLASH_CACHE.set(q, { savedAt: now, url: chosen || null });
-    return chosen || null;
+    // Fallback sans clé: source.unsplash.com (retourne une image aléatoire pour la requête)
+    const encoded = encodeURIComponent(q || "news");
+    const sourceUrl = `https://source.unsplash.com/featured/1200x630/?${encoded}`;
+    UNSPLASH_CACHE.set(q, { savedAt: now, url: sourceUrl });
+    return sourceUrl;
   } catch {
     return null;
   }
