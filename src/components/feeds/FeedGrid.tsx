@@ -169,29 +169,35 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       window.dispatchEvent(new Event("flux:ai:token:consume"));
     } catch {}
     if (!article.link) return;
+    try { console.info("[audio] start", { url: article.link, title: article.title }); } catch {}
     setGeneratingId(article.id);
     try {
       // Résumé narratif: privilégier client si clé locale, sinon API serveur
       let apiKey = "";
       try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+      try { console.info("[audio] path", { clientFirst: !!apiKey }); } catch {}
       let narrative = "";
       if (apiKey) {
         // Client-first: extraire article puis résumer via OpenAI directement
+        const tFetch = Date.now();
         const art = await fetch("/api/article", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: article.link }),
         }).then(r => r.ok ? r.json() : Promise.reject(new Error("article-fail"))) as { contentHtml?: string };
         const html = (art?.contentHtml || "").toString();
+        try { console.info("[audio] article.fetch.ok", { ms: Date.now() - tFetch, htmlLen: html.length }); } catch {}
         const tmp = document.createElement("div");
         tmp.innerHTML = html;
         const base = tmp.textContent || tmp.innerText || "";
         const cleaned = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+        try { console.info("[audio] article.cleaned", { cleanedLen: cleaned.length }); } catch {}
         const prompt = lang === "fr"
           ? "Nettoie et écris un RÉSUMÉ NARRATIF audio en 6-10 phrases, fluide, sans puces, sans emoji.\n\n"
           : "Write a NARRATIVE SUMMARY for audio in 6–10 sentences, fluent, no bullets, no emojis.\n\n";
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 10000);
+        const aiStart = Date.now();
         const aiRes = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -199,6 +205,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
           signal: ctrl.signal,
         }).catch(() => null);
         clearTimeout(t);
+        try { console.info("[audio] client-ai.done", { ok: !!(aiRes && aiRes.ok), ms: Date.now() - aiStart }); } catch {}
         if (aiRes && aiRes.ok) {
           const j = await aiRes.json();
           const text = (() => {
@@ -208,16 +215,20 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
             return "";
           })();
           narrative = text && text.trim() ? text.trim() : cleaned.slice(0, 800);
+          try { console.info("[audio] narrative", { len: (narrative || "").length }); } catch {}
         } else {
           narrative = cleaned.slice(0, 800);
+          try { console.warn("[audio] client-ai.failed -> using truncated text", { len: narrative.length }); } catch {}
         }
       } else {
         // Secours: API serveur texte-only
+        const srvStart = Date.now();
         const res = await fetch("/api/ai/summarize-tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: article.link, lang, textOnly: true, mode: "audio" }),
         });
+        try { console.info("[audio] server.req.done", { status: res.status, ms: Date.now() - srvStart }); } catch {}
         const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
         if (!res.ok) {
           const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
@@ -228,6 +239,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         }
         const json = (await res.json()) as { text: string };
         narrative = json.text || "";
+        try { console.info("[audio] narrative.server", { len: (narrative || "").length }); } catch {}
       }
 
       // Synthèse vocale (via /api/tts) — toujours côté client
@@ -240,6 +252,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       const voice = (localStorage.getItem("flux:ai:voice") as string) || "alloy";
       const controller = new AbortController();
       const tTimeout = setTimeout(() => controller.abort(), 20000);
+      const ttsStart = Date.now();
       const ttsRes = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -247,11 +260,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         signal: controller.signal,
       });
       clearTimeout(tTimeout);
+      try { console.info("[audio] tts.req.done", { status: ttsRes.status, ms: Date.now() - ttsStart }); } catch {}
       if (!ttsRes.ok) {
         const e = await ttsRes.text().catch(() => "");
         throw new Error(`TTS failed: ${e || ttsRes.status}`);
       }
       const ttsJson = (await ttsRes.json()) as { audio: string };
+      try { console.info("[audio] tts.ok", { audioLen: (ttsJson?.audio || "").length }); } catch {}
       const blob = base64ToBlob(ttsJson.audio, "audio/mpeg");
       const url = URL.createObjectURL(blob);
       if (audioEl) { try { audioEl.pause(); } catch {} }
@@ -287,6 +302,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       toast.error(t(lang, "noArticlesToday"));
       return;
     }
+    try { console.info("[digest] start", { items: todays.length }); } catch {}
     setGeneratingId(DIGEST_ID);
     try {
       let apiKey = "";
@@ -296,11 +312,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       const voice = localStorage.getItem("flux:ai:voice") || undefined;
       const items = todays.slice(0, 30).map((a) => ({ title: a.title, snippet: a.contentSnippet }));
       const sourceTitle = getHeaderTitle(feeds.map((f) => ({ title: f.title, url: f.url })));
+      const srvStart = Date.now();
       const res = await fetch("/api/ai/summarize-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, sourceTitle, lang, apiKey: apiKey || undefined, voice }),
       });
+      try { console.info("[digest] server.req.done", { status: res.status, ms: Date.now() - srvStart }); } catch {}
       const errJson = (!res.ok ? await safeJson(res) : null) as { error?: string; stage?: string } | null;
       if (!res.ok) {
         const stage = errJson?.stage ? ` (étape: ${errJson.stage})` : "";
@@ -314,6 +332,7 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         throw new Error((errJson?.error || `Echec génération audio (${res.status})`) + stage);
       }
       const json = (await res.json()) as { audio: string; text: string };
+      try { console.info("[digest] server.ok", { audioLen: (json?.audio || "").length, textLen: (json?.text || "").length }); } catch {}
       if (audioEl) {
         try { audioEl.pause(); } catch {}
       }

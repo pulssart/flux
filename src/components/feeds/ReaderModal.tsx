@@ -66,6 +66,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
       // Continuer malgré l'absence de tokens (mode illimité via clé locale)
       try { toast.error(lang === "fr" ? "Plus de tokens aujourd'hui (mode illimité avec votre clé)." : "No tokens left today (using your API key anyway)." ); } catch {}
     }
+    try { console.info("[reader] open", { url: article.link, lang }); } catch {}
     setLoading(true);
     setSummary("");
     setLoadingStep(0);
@@ -78,8 +79,10 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
       try {
         let apiKey = "";
         try { apiKey = localStorage.getItem("flux:ai:openai") || ""; } catch {}
+        try { console.info("[reader] mode", { clientFirst: !!apiKey }); } catch {}
         if (apiKey) {
           // Mode radical: résumé côté client (bypass serveur)
+          const tFetchStart = Date.now();
           const art = await fetch("/api/article", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -87,15 +90,18 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             signal: controller.signal,
           }).then(r => r.ok ? r.json() : Promise.reject(new Error("article-fail")) ) as { contentHtml?: string };
           const html = (art?.contentHtml || "").toString();
+          try { console.info("[reader] article.fetch.ok", { ms: Date.now() - tFetchStart, htmlLen: html.length }); } catch {}
           const tmp = document.createElement("div");
           tmp.innerHTML = html;
           const base = tmp.textContent || tmp.innerText || "";
           const cleaned = base.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+          try { console.info("[reader] article.cleaned", { cleanedLen: cleaned.length }); } catch {}
           const prompt = lang === "fr"
             ? "Résume clairement et factuellement en 6 à 10 puces + une phrase TL;DR en tête. Pas d'emojis.\n\n"
             : "Summarize clearly and factually: TL;DR one sentence + 6-10 bullets. No emojis.\n\n";
           const ctrl = new AbortController();
           const t = setTimeout(() => ctrl.abort(), 11000);
+          const aiStart = Date.now();
           const aiRes = await fetch("https://api.openai.com/v1/responses", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -103,6 +109,7 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
             signal: ctrl.signal,
           }).catch(() => null);
           clearTimeout(t);
+          try { console.info("[reader] client-ai.done", { ok: !!(aiRes && aiRes.ok), ms: Date.now() - aiStart }); } catch {}
           if (aiRes && aiRes.ok) {
             const j = await aiRes.json();
             const text = (() => {
@@ -111,19 +118,21 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               for (const o of out) { const c = Array.isArray(o?.content) ? o.content : []; for (const cc of c) { if (typeof cc?.text === "string" && cc.text.trim()) return cc.text; } }
               return "";
             })();
-            if (text && text.trim()) { setSummary(text.trim()); return; }
+            if (text && text.trim()) { setSummary(text.trim()); try { console.info("[reader] inject", { source: "client", len: text.trim().length }); } catch {} return; }
             try { console.warn("[summarize-tts] empty AI response text"); } catch {}
           }
           // Pas de fallback: ne pas tenter le serveur et ne pas injecter de texte tronqué
           throw new Error("client-ai-failed");
         } else {
           // Pas de clé: fallback API serveur (peut être partiel mais évite blocage UX)
+          const srvStart = Date.now();
           const res = await fetch("/api/ai/summarize-tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: article.link, lang, textOnly: true }),
             signal: controller.signal,
           });
+          try { console.info("[reader] server.req.done", { status: res.status, ms: Date.now() - srvStart }); } catch {}
           try {
             const tid = res?.headers?.get("x-trace-id") || "";
             if (tid) { setTraceId(tid); try { console.info("[summarize-tts] traceId", tid, { source: "client->server(no-key)" }); } catch {} }
