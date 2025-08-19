@@ -117,14 +117,17 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
           const linkHost = item.link ? new URL(item.link).hostname : "";
           const needsEnhance = !snippet || snippet.length < 30 || /producthunt\.com$/.test(linkHost) || /(^|\.)producthunt\.com$/.test(linkHost);
           if (needsEnhance && item.link) {
-            if (!ogMeta) ogMeta = await fetchOgMetadata(item.link).catch(() => null);
-            const ogDesc = ogMeta?.description || "";
-            if (ogDesc && ogDesc.length > (snippet?.length || 0)) {
-              snippet = ogDesc.slice(0, 280).trim();
-            } else if (!snippet) {
-              // fallback to first paragraph from the fetched HTML
-              const para = ogMeta?.firstParagraph;
-              if (para) snippet = para.slice(0, 280).trim();
+            // Récupérer les métadonnées OG si nécessaire
+            const ogMeta = await fetchOgMetadata(item.link).catch(() => null);
+            if (ogMeta) {
+              const ogDesc = ogMeta.description || "";
+              if (ogDesc && ogDesc.length > (snippet?.length || 0)) {
+                snippet = ogDesc.slice(0, 280).trim();
+              } else if (!snippet) {
+                // fallback to first paragraph from the fetched HTML
+                const para = ogMeta.firstParagraph;
+                if (para) snippet = para.slice(0, 280).trim();
+              }
             }
           }
         } catch {}
