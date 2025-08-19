@@ -112,36 +112,10 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
               return "";
             })();
             if (text && text.trim()) { setSummary(text.trim()); return; }
+            try { console.warn("[summarize-tts] empty AI response text"); } catch {}
           }
-          // En cas d'échec OpenAI direct, tenter l'API serveur avec la clé fournie
-          try {
-            const srvCtrl = new AbortController();
-            const srvT = setTimeout(() => srvCtrl.abort(), 9000);
-            const srv = await fetch("/api/ai/summarize-tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: article.link, lang, apiKey, textOnly: true, mode: "structured" }),
-              signal: srvCtrl.signal,
-            }).catch(() => null);
-            clearTimeout(srvT);
-            try {
-              const tid = srv?.headers?.get("x-trace-id") || "";
-              if (tid) { setTraceId(tid); try { console.info("[summarize-tts] traceId", tid, { source: "client->server(apiKey)" }); } catch {} }
-            } catch {}
-            if (srv && srv.ok) {
-              const sj = await srv.json();
-              try {
-                if (!traceId && typeof sj?.traceId === "string" && sj.traceId) {
-                  setTraceId(sj.traceId);
-                  try { console.info("[summarize-tts] traceId", sj.traceId, { source: "body" }); } catch {}
-                }
-              } catch {}
-              const st = (sj?.text as string) || "";
-              try { console.info("[summarize-tts] received text", { len: st?.length || 0, empty: !st }); } catch {}
-              if (st && st.trim()) { setSummary(st.trim()); try { console.info("[summarize-tts] injected into reader", { len: st.trim().length }); } catch {} return; }
-            }
-          } catch {}
-          setSummary(cleaned.slice(0, 800));
+          // Pas de fallback: ne pas tenter le serveur et ne pas injecter de texte tronqué
+          throw new Error("client-ai-failed");
         } else {
           // Pas de clé: fallback API serveur (peut être partiel mais évite blocage UX)
           const res = await fetch("/api/ai/summarize-tts", {
@@ -164,11 +138,13 @@ export function ReaderModal({ open, onOpenChange, article }: ReaderModalProps) {
           if (!res.ok) throw new Error(json?.error || "summary failed");
           const txt = ((json?.text as string) || "").toString();
           try { console.info("[summarize-tts] received text", { len: txt?.length || 0, empty: !txt }); } catch {}
+          if (!txt || !txt.trim()) throw new Error("server-empty-text");
           setSummary(txt);
           try { console.info("[summarize-tts] injected into reader", { len: txt.length }); } catch {}
         }
-      } catch {
-        setSummary(lang === "fr" ? "Impossible de générer le résumé de cet article." : "Failed to generate the article summary.");
+      } catch (e) {
+        setSummary("");
+        try { console.error("[reader] summary injection failed", e); toast.error(lang === "fr" ? "Résumé IA indisponible (voir console)" : "AI summary unavailable (see console)"); } catch {}
       } finally {
         clearInterval(interval);
         setLoading(false);
