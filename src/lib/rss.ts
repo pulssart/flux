@@ -101,6 +101,15 @@ export async function parseFeed(url: string, opts?: ParseFeedOptions): Promise<P
         if (yt) image = yt;
       }
 
+      // Fallback final: image thématique via Unsplash (basée sur le titre)
+      if (!image) {
+        const q = (item.title || "").toString().trim();
+        if (q) {
+          const u = await findUnsplashImage(q, Math.min(2500, timeoutMs)).catch(() => null);
+          if (u) image = u;
+        }
+      }
+
       const id = (item.guid as string) || `${item.link || ""}#${index}`;
 
       // Build description/snippet with robust fallbacks (e.g., Product Hunt)
@@ -349,6 +358,60 @@ function resolveUrl(url: string, baseLink?: string): string {
     return new URL(url, baseLink).toString();
   } catch {
     return url;
+  }
+}
+
+
+// --- Unsplash fallback ---
+type UnsplashCacheEntry = { savedAt: number; url: string | null };
+const UNSPLASH_CACHE = new Map<string, UnsplashCacheEntry>();
+const UNSPLASH_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+async function findUnsplashImage(query: string, timeoutMs = 2500): Promise<string | null> {
+  try {
+    const q = query.toLowerCase().slice(0, 140);
+    const cached = UNSPLASH_CACHE.get(q);
+    const now = Date.now();
+    if (cached && now - cached.savedAt < UNSPLASH_TTL_MS) {
+      return cached.url;
+    }
+
+    const key = (process.env.UNSPLASH_ACCESS_KEY || process.env.NEXT_PUBLIC_UNSPLASH_KEY || "").toString().trim();
+    if (!key) {
+      UNSPLASH_CACHE.set(q, { savedAt: now, url: null });
+      return null;
+    }
+
+    const url = new URL("https://api.unsplash.com/search/photos");
+    url.searchParams.set("query", q);
+    url.searchParams.set("orientation", "landscape");
+    url.searchParams.set("content_filter", "high");
+    url.searchParams.set("per_page", "1");
+    url.searchParams.set("page", "1");
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Accept-Version": "v1",
+        Authorization: `Client-ID ${key}`,
+      },
+      signal: controller.signal,
+    }).catch(() => null);
+    clearTimeout(timer);
+    if (!res || !res.ok) {
+      UNSPLASH_CACHE.set(q, { savedAt: now, url: null });
+      return null;
+    }
+    const data = (await res.json()) as { results?: Array<{ urls?: { regular?: string; small?: string; thumb?: string } }> };
+    const first = (data.results || [])[0];
+    const chosen = first?.urls?.regular || first?.urls?.small || first?.urls?.thumb || null;
+    UNSPLASH_CACHE.set(q, { savedAt: now, url: chosen || null });
+    return chosen || null;
+  } catch {
+    return null;
   }
 }
 
