@@ -182,6 +182,8 @@ function normalizeImageUrl(u?: string | null): string | null {
 function extractImageFromHtml(html: string, baseLink?: string): string | null {
   if (!html) return null;
   const $ = cheerio.load(html);
+  // Collecte de candidats potentiels (URLs d'images)
+  const candidates: string[] = [];
   // Prioritaire: WordPress featured image
   try {
     const featured = $(
@@ -204,8 +206,18 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
       if (normalized) return resolveUrl(normalized, baseLink);
     }
   } catch {}
+  // Sources <source media=...> en début de post (fréquent dans des heros responsive)
+  try {
+    $("source[media][srcset], source[media][data-srcset]")
+      .slice(0, 8)
+      .each((_, el) => {
+        const $el = $(el);
+        const best = pickBestFromSrcset($el.attr("srcset") || $el.attr("data-srcset") || null);
+        if (best) candidates.push(best);
+      });
+  } catch {}
+
   // Essayer differents attributs et variantes lazy
-  const candidates: string[] = [];
   $("img").each((_, el) => {
     const $el = $(el);
     const attrs = [
