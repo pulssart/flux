@@ -26,6 +26,9 @@ type SummarizeTtsBody = {
 export async function POST(req: NextRequest) {
   try {
     const { url, items, sourceTitle, lang = "fr", apiKey, voice, textOnly, mode = "structured" } = (await req.json()) as SummarizeTtsBody;
+    const REQUEST_BUDGET_MS = 18000; // budget total pour éviter 504
+    const startedAt = Date.now();
+    const timeLeft = () => Math.max(1000, REQUEST_BUDGET_MS - (Date.now() - startedAt));
     if (!(apiKey || process.env.OPENAI_API_KEY)) {
       return NextResponse.json({ error: "Clé OpenAI manquante. Renseignez-la dans Réglages." }, { status: 401 });
     }
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (url && typeof url === "string") {
       let html: string;
       try {
-        html = await fetchWithTimeout(url, 12000);
+        html = await fetchWithTimeout(url, Math.min(9000, timeLeft() - 1000));
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         return NextResponse.json(
@@ -62,9 +65,13 @@ export async function POST(req: NextRequest) {
 
       let summary: string;
       try {
-        summary = await summarizeWithRetries(limited, lang, apiKey, mode);
+        summary = await summarizeWithRetries(limited, lang, apiKey, mode, timeLeft());
       } catch (e: unknown) {
         if (e instanceof ApiError) {
+          if (e.status === 504) {
+            const fallback = limited.slice(0, 800);
+            return NextResponse.json({ text: fallback, partial: true, reason: "summary-timeout" }, { status: 200 });
+          }
           return NextResponse.json(
             { error: e.message, stage: "summary" },
             { status: e.status }
@@ -81,7 +88,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, 20000);
+        const audioBase64 = await ttsWithTTS1HD(summary, lang, apiKey, voice, Math.min(20000, timeLeft()));
         return NextResponse.json({ text: summary, audio: audioBase64 }, { status: 200 });
       } catch (e: unknown) {
         // Fallback: retourner le texte même si la synthèse audio échoue/timeout
@@ -199,7 +206,7 @@ function extractMainText(html: string): string {
   return best;
 }
 
-async function summarizeStructured(input: string, lang: string, clientKey?: string): Promise<string> {
+async function summarizeStructured(input: string, lang: string, clientKey?: string, timeoutMs = 12000): Promise<string> {
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
@@ -228,8 +235,8 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
 
   // Utiliser l'API Responses pour gpt-5-nano
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 18000);
-  let res: Response;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response | null = null;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -243,6 +250,8 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
     }),
     signal: controller.signal,
   });
+  } catch {
+    throw new ApiError(504, "summary-timeout");
   } finally {
     clearTimeout(timer);
   }
@@ -266,7 +275,7 @@ async function summarizeStructured(input: string, lang: string, clientKey?: stri
   return text.trim();
 }
 
-async function summarizeForAudio(input: string, lang: string, clientKey?: string): Promise<string> {
+async function summarizeForAudio(input: string, lang: string, clientKey?: string, timeoutMs = 12000): Promise<string> {
   const apiKey = clientKey || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Clé OpenAI manquante");
 
@@ -288,8 +297,8 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
       );
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 18000);
-  let res: Response;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response | null = null;
   try {
     res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -303,6 +312,8 @@ async function summarizeForAudio(input: string, lang: string, clientKey?: string
     }),
     signal: controller.signal,
   });
+  } catch {
+    throw new ApiError(504, "summary-timeout");
   } finally {
     clearTimeout(timer);
   }
@@ -331,14 +342,18 @@ async function summarizeWithRetries(
   input: string,
   lang: string,
   apiKey: string | undefined,
-  mode: "structured" | "audio"
+  mode: "structured" | "audio",
+  budgetMs?: number
 ): Promise<string> {
   const attempts = [1, 2, 3];
   let lastErr: unknown = null;
   let text = input;
   for (const n of attempts) {
     try {
-      const result = mode === "audio" ? await summarizeForAudio(text, lang, apiKey) : await summarizeStructured(text, lang, apiKey);
+      const remaining = typeof budgetMs === "number" ? Math.max(7000, budgetMs - (n - 1) * 4000) : 12000;
+      const result = mode === "audio"
+        ? await summarizeForAudio(text, lang, apiKey, remaining)
+        : await summarizeStructured(text, lang, apiKey, remaining);
       if (result && result.trim()) return result.trim();
       throw new ApiError(502, "empty-summary");
     } catch (e: unknown) {
