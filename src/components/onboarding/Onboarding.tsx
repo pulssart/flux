@@ -78,19 +78,25 @@ export function Onboarding() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) finish(); }}>
-      <DialogContent className={large ? "w-[92vw] max-w-4xl md:max-w-5xl" : undefined}>
+      <DialogContent className={large ? "w-[92vw] max-w-4xl md:max-w-5xl" : "sm:max-w-[600px] md:max-w-[800px]"}>
         <DialogHeader>
           <DialogTitle>{current.title}</DialogTitle>
           <DialogDescription>{current.desc}</DialogDescription>
         </DialogHeader>
         {current.isPersona ? (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
             {(Object.entries(PERSONAS) as [Persona, typeof PERSONAS[Persona]][]).map(([key, persona]) => (
-              <div key={key} className="flex flex-col gap-2 p-4 rounded-lg border">
-                <h3 className="text-lg font-semibold">{persona.title[lang]}</h3>
-                <p className="text-sm text-muted-foreground">{persona.description[lang]}</p>
-                <div className="mt-2">
-                  <Button onClick={() => selectPersona(key)}>{t(lang, "onboardingPersonaSelect")}</Button>
+              <div key={key} className="flex flex-col gap-3 p-6 rounded-xl border bg-card hover:border-foreground/20 transition-colors">
+                <h3 className="text-xl font-semibold">{persona.title[lang]}</h3>
+                <p className="text-sm text-muted-foreground flex-grow">{persona.description[lang]}</p>
+                <div className="mt-auto">
+                  <Button 
+                    className="w-full bg-background hover:bg-foreground hover:text-background transition-colors" 
+                    variant="outline"
+                    onClick={() => selectPersona(key)}
+                  >
+                    {t(lang, "onboardingPersonaSelect")}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -108,16 +114,42 @@ export function Onboarding() {
           </div>
         ) : null}
         <DialogFooter>
-          <div className="w-full flex items-center justify-between">
-            <Button variant="ghost" onClick={finish}>{current.isPersona ? t(lang, "onboardingPersonaSkip") : t(lang, "onboardingSkip")}</Button>
+          <div className="w-full flex items-center justify-between gap-4">
+            {current.isPersona ? (
+              <Button 
+                variant="ghost" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={finish}
+              >
+                {t(lang, "onboardingPersonaSkip")}
+              </Button>
+            ) : (
+              <Button variant="ghost" onClick={finish}>{t(lang, "onboardingSkip")}</Button>
+            )}
             <div className="flex items-center gap-2">
               {step > 0 && (
-                <Button variant="outline" onClick={() => setStep((s) => Math.max(0, s - 1))}>{t(lang, "onboardingBack")}</Button>
+                <Button 
+                  variant="outline" 
+                  className="min-w-[80px]"
+                  onClick={() => setStep((s) => Math.max(0, s - 1))}
+                >
+                  {t(lang, "onboardingBack")}
+                </Button>
               )}
               {step < slides.length - 1 ? (
-                <Button onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}>{t(lang, "onboardingNext")}</Button>
+                <Button 
+                  className="min-w-[80px] bg-foreground text-background hover:bg-foreground/90"
+                  onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}
+                >
+                  {t(lang, "onboardingNext")}
+                </Button>
               ) : (
-                <Button onClick={finish}>{t(lang, "onboardingDone")}</Button>
+                <Button 
+                  className="min-w-[80px] bg-foreground text-background hover:bg-foreground/90"
+                  onClick={finish}
+                >
+                  {t(lang, "onboardingDone")}
+                </Button>
               )}
             </div>
           </div>
