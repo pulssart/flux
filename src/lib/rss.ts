@@ -226,7 +226,8 @@ function extractImageFromHtml(html: string, baseLink?: string): string | null {
     const urlLower = url.toLowerCase();
     
     // Ignorer les petites images si on connaît leurs dimensions
-    if ((width || height) && width < 100 && height < 100) return false;
+    const hasSize = typeof width === 'number' || typeof height === 'number';
+    if (hasSize && (width || 0) < 100 && (height || 0) < 100) return false;
     
     // Ignorer les images probablement décoratives
     return !urlLower.includes("avatar") &&
