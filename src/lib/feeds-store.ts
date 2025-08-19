@@ -30,4 +30,24 @@ export function getFeedsByIds(ids: string[]): FeedInfo[] {
   return all.filter((f) => set.has(f.id));
 }
 
+export async function addFeed(url: string, title: string): Promise<FeedInfo> {
+  const feeds = loadFeeds();
+  // Vérifier si le flux existe déjà
+  const existing = feeds.find(f => f.url === url);
+  if (existing) return existing;
 
+  // Créer un nouveau flux
+  const id = crypto.randomUUID();
+  const feed: FeedInfo = { id, title, url };
+  
+  // Ajouter et sauvegarder
+  feeds.push(feed);
+  saveFeeds(feeds);
+  
+  // Notifier les autres composants
+  try {
+    window.dispatchEvent(new Event("flux:feeds:change"));
+  } catch {}
+  
+  return feed;
+}
