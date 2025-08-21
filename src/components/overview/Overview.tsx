@@ -192,7 +192,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       const j = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || !j?.text) throw new Error(j?.error || t(lang, "serverGenError"));
       const base = j.text;
-      const final = writingItem.link ? `${base}\n\n${writingItem.link}` : base;
+      let final = writingItem.link ? `${base}\n\n${writingItem.link}` : base;
+      // Limiter à 350 caractères (après ajout du lien)
+      final = final.slice(0, 350);
       setPostText(final);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t(lang, "serverGenError"));

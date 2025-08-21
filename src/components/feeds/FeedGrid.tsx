@@ -218,7 +218,9 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
         throw new Error(j?.error || t(lang, "serverGenError"));
       }
       const base = j.text;
-      const final = writingArticle.link ? `${base}\n\n${writingArticle.link}` : base;
+      let final = writingArticle.link ? `${base}\n\n${writingArticle.link}` : base;
+      // Limiter à 350 caractères (après ajout du lien)
+      final = final.slice(0, 350);
       setPostText(final);
     } catch (e) {
       try { toast.error((e as Error).message || t(lang, "serverGenError")); } catch {}
