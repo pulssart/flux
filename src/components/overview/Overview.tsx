@@ -190,7 +190,9 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
       });
       const j = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || !j?.text) throw new Error(j?.error || t(lang, "serverGenError"));
-      setPostText(j.text);
+      const base = j.text;
+      const final = writingItem.link ? `${base}\n\n${writingItem.link}` : base;
+      setPostText(final);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t(lang, "serverGenError"));
     } finally {

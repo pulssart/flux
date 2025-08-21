@@ -216,7 +216,9 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       if (!res.ok || !j?.text) {
         throw new Error(j?.error || t(lang, "serverGenError"));
       }
-      setPostText(j.text);
+      const base = j.text;
+      const final = writingArticle.link ? `${base}\n\n${writingArticle.link}` : base;
+      setPostText(final);
     } catch (e) {
       try { toast.error((e as Error).message || t(lang, "serverGenError")); } catch {}
     } finally {
