@@ -186,6 +186,7 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           lang,
           apiKey: aiKey,
           style: xStyle,
+          styleRef: (() => { try { return localStorage.getItem("flux:xpost:style:ref") || ""; } catch { return ""; } })(),
         }),
       });
       const j = (await res.json()) as { text?: string; error?: string };

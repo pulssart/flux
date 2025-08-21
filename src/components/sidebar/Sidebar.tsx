@@ -138,6 +138,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
   const [aiKey, setAiKey] = useState("");
   const [aiVoice, setAiVoice] = useState("alloy");
   const [xStyle, setXStyle] = useState<string>("casual");
+  const [xStyleRef, setXStyleRef] = useState<string>("");
+  const [settingsTab, setSettingsTab] = useState<"general" | "style">("general");
   const [authLoading, setAuthLoading] = useState(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionAvatarUrl, setSessionAvatarUrl] = useState<string | null>(null);
@@ -200,6 +202,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
       setAiVoice(v);
       const s = localStorage.getItem("flux:xpost:style") || "casual";
       setXStyle(s);
+      const r = localStorage.getItem("flux:xpost:style:ref") || "";
+      setXStyleRef(r);
     } catch {}
     // Récupérer la session Supabase côté client
     (async () => {
@@ -1089,6 +1093,15 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
             <DialogDescription>{t(lang, "appearanceAndLanguage")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b pb-2">
+              <Button size="sm" variant={settingsTab === "general" ? "default" : "outline"} onClick={() => setSettingsTab("general")}>
+                {t(lang, "settingsTabGeneral")}
+              </Button>
+              <Button size="sm" variant={settingsTab === "style" ? "default" : "outline"} onClick={() => setSettingsTab("style")}>
+                {t(lang, "settingsTabStyle")}
+              </Button>
+            </div>
+            {settingsTab === "general" ? (
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "theme")}</Label>
               <div className="flex gap-2">
@@ -1097,6 +1110,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 <Button variant={(mounted ? (theme ?? resolvedTheme) : "light") === "system" ? "default" : "outline"} onClick={() => setTheme("system")}>{t(lang, "system")}</Button>
               </div>
             </div>
+            ) : null}
+            {settingsTab === "general" ? (
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "language")}</Label>
               <div className="flex gap-2">
@@ -1104,6 +1119,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 <Button variant={lang === "en" ? "default" : "outline"} onClick={() => setLang("en")}>{t(lang, "english")}</Button>
               </div>
             </div>
+            ) : null}
+            {settingsTab === "general" ? (
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "openAiKeyLabel")}</Label>
               <Input
@@ -1119,6 +1136,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               />
               <p className="text-xs text-muted-foreground">{t(lang, "openAiKeyHelp")}</p>
             </div>
+            ) : null}
+            {settingsTab === "general" ? (
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "aiVoiceLabel")}</Label>
               <select
@@ -1144,6 +1163,8 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
               </select>
               <p className="text-xs text-muted-foreground">{t(lang, "aiVoiceHelp")}</p>
             </div>
+            ) : null}
+            {settingsTab === "style" ? (
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "writingStyleLabel")}</Label>
               <select
@@ -1165,7 +1186,18 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 <option value="formal">{t(lang, "styleFormal")}</option>
               </select>
               <p className="text-xs text-muted-foreground">{t(lang, "writingStyleHelp")}</p>
+              <Label className="text-sm mt-2">{t(lang, "writingStyleRefLabel")}</Label>
+              <textarea
+                value={xStyleRef}
+                onChange={(e) => setXStyleRef(e.target.value)}
+                onBlur={() => { try { localStorage.setItem("flux:xpost:style:ref", xStyleRef || ""); } catch {} }}
+                placeholder="Ex: Collez ici un post dont vous aimez le ton, une newsletter, etc."
+                className="w-full min-h-[160px] rounded-md border p-3 text-sm bg-transparent outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+              />
+              <p className="text-xs text-muted-foreground">{t(lang, "writingStyleRefHelp")}</p>
             </div>
+            ) : null}
+            {settingsTab === "general" ? (
             <div className="space-y-2">
               <Label className="text-sm">{t(lang, "backupLabel")}</Label>
               <div className="flex gap-2">
@@ -1243,6 +1275,7 @@ export function Sidebar({ onSelectFeeds, width = 280, collapsed = false, onToggl
                 </Button>
               </div>
             </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button onClick={() => setSettingsOpen(false)}>{t(lang, "close")}</Button>
