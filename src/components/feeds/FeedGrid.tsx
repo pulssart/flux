@@ -2,14 +2,16 @@
 /* eslint-disable @next/next/no-img-element */
 
 import useSWR from "swr";
-import { Image as ImageIcon, RefreshCcw, CalendarDays, Copy, Check, Settings2 } from "lucide-react";
+import { Image as ImageIcon, RefreshCcw, CalendarDays, Copy, Check, Settings2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cacheImagesForItems, cacheImagesForFeed, loadFeedItemsFromCache, saveFeedItemsToCache } from "@/lib/feed-cache";
 import { getFeedsByIds } from "@/lib/feeds-store";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect } from "react";
@@ -78,6 +80,13 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
   const [manualRefresh, setManualRefresh] = useState(0);
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [writeOpen, setWriteOpen] = useState(false);
+  const [writingArticle, setWritingArticle] = useState<Article | null>(null);
+  const [xStyle, setXStyle] = useState<string>(() => {
+    try { return localStorage.getItem("flux:xpost:style") || "casual"; } catch { return "casual"; }
+  });
+  const [postText, setPostText] = useState("");
+  const [generatingPost, setGeneratingPost] = useState(false);
 
   // (les helpers favicons sont maintenant portés en haut du fichier)
 
@@ -135,6 +144,101 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
     const embed = getYouTubeEmbed(url);
     if (!embed) return;
     setVideoUrl(embed);
+  }
+
+  function openWriteModal(article: Article) {
+    setWritingArticle(article);
+    setPostText("");
+    setWriteOpen(true);
+  }
+
+  function styleLabel(style: string): string {
+    switch (style) {
+      case "casual": return t(lang, "styleCasual");
+      case "concise": return t(lang, "styleConcise");
+      case "journalistic": return t(lang, "styleJournalistic");
+      case "analytical": return t(lang, "styleAnalytical");
+      case "enthusiastic": return t(lang, "styleEnthusiastic");
+      case "technical": return t(lang, "styleTechnical");
+      case "humorous": return t(lang, "styleHumorous");
+      case "formal": return t(lang, "styleFormal");
+      case "very_personal": return t(lang, "styleVeryPersonal");
+      default: return style;
+    }
+  }
+
+  async function fetchArticlePlainText(url?: string): Promise<string> {
+    if (!url) return "";
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch("/api/article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) return "";
+      const j = (await res.json()) as { contentHtml?: string };
+      const html = j?.contentHtml || "";
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      const text = div.textContent || div.innerText || "";
+      return text.replace(/\s+/g, " ").trim();
+    } catch {
+      return "";
+    }
+  }
+
+  async function handleGeneratePost() {
+    if (!writingArticle) return;
+    const aiKey = (() => { try { return localStorage.getItem("flux:ai:openai") || ""; } catch { return ""; } })();
+    if (!aiKey) { try { toast.error(t(lang, "openAiMissing")); } catch {} return; }
+    setGeneratingPost(true);
+    try {
+      let summary = writingArticle.contentSnippet || "";
+      const fullText = await fetchArticlePlainText(writingArticle.link);
+      if (fullText) summary = fullText.slice(0, 1000);
+      const res = await fetch("/api/ai/generate-x-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: writingArticle.title,
+          summary,
+          url: writingArticle.link || "",
+          lang,
+          apiKey: aiKey,
+          style: xStyle,
+        }),
+      });
+      const j = (await res.json()) as { text?: string; error?: string };
+      if (!res.ok || !j?.text) {
+        throw new Error(j?.error || t(lang, "serverGenError"));
+      }
+      setPostText(j.text);
+    } catch (e) {
+      try { toast.error((e as Error).message || t(lang, "serverGenError")); } catch {}
+    } finally {
+      setGeneratingPost(false);
+    }
+  }
+
+  async function handleCopyPost() {
+    try {
+      await navigator.clipboard.writeText(postText);
+      try { toast.success(t(lang, "postCopied")); } catch {}
+    } catch {
+      try { toast.error(t(lang, "clipboardError")); } catch {}
+    }
+  }
+
+  async function handlePostOnX() {
+    await handleCopyPost();
+    try {
+      const url = `https://x.com/intent/tweet?text=${encodeURIComponent(postText)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {}
   }
 
   // Lecture audio supprimée
@@ -253,14 +357,15 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
       ) : (
         <>
           {featured && (
-        <FeaturedArticleCard
+            <FeaturedArticleCard
               article={featured}
-          onOpenVideo={() => openVideoOverlay(featured.link)}
+              onOpenVideo={() => openVideoOverlay(featured.link)}
+              onWrite={() => openWriteModal(featured)}
             />
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             {rest.map((a) => (
-          <ArticleCard key={a.id} article={a} />
+              <ArticleCard key={a.id} article={a} onWrite={() => openWriteModal(a)} />
             ))}
           </div>
         </>
@@ -277,6 +382,60 @@ export function FeedGrid({ feedIds, refreshKey }: FeedGridProps) {
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      {/* Modale écriture X */}
+      <Dialog open={writeOpen} onOpenChange={(o) => { setWriteOpen(o); if (!o) { setWritingArticle(null); setPostText(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t(lang, "writeAbout")}</DialogTitle>
+          </DialogHeader>
+          {writingArticle ? (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground line-clamp-2">{writingArticle.title}</div>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">{t(lang, "writingStyleLabel")}: {styleLabel(xStyle)}</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {[
+                      "casual",
+                      "concise",
+                      "journalistic",
+                      "analytical",
+                      "enthusiastic",
+                      "technical",
+                      "humorous",
+                      "formal",
+                      "very_personal",
+                    ].map((s) => (
+                      <DropdownMenuItem key={s} onSelect={() => { setXStyle(s); try { localStorage.setItem("flux:xpost:style", s); } catch {} }}>
+                        {styleLabel(s)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button size="sm" onClick={() => void handleGeneratePost()} disabled={generatingPost}>
+                  {generatingPost ? t(lang, "generatingPost") : t(lang, "generatePost")}
+                </Button>
+              </div>
+              <div>
+                <textarea
+                  value={postText}
+                  onChange={(e) => setPostText(e.target.value)}
+                  placeholder={t(lang, "generatePost")}
+                  className="w-full min-h-[160px] rounded-md border p-3 text-sm bg-transparent outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                />
+              </div>
+              <DialogFooter>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => void handleCopyPost()} disabled={!postText}>{t(lang, "copyPost")}</Button>
+                  <Button onClick={() => void handlePostOnX()} disabled={!postText}>{t(lang, "postOnX")}</Button>
+                </div>
+              </DialogFooter>
             </div>
           ) : null}
         </DialogContent>
@@ -306,7 +465,7 @@ function SkeletonGrid() {
   );
 }
 
-function ArticleCard({ article }: { article: Article }) {
+function ArticleCard({ article, onWrite }: { article: Article; onWrite: () => void }) {
   // util locales retirées (non utilisées dans cette carte)
   const [lang] = useLang();
   const [copied, setCopied] = useState(false);
@@ -360,7 +519,7 @@ function ArticleCard({ article }: { article: Article }) {
               <ImageIcon className="w-6 h-6 text-muted-foreground/40" aria-hidden="true" />
             </div>
           )}
-          {/* Boutons action: copier lien + lecteur */}
+          {/* Boutons action: copier lien + écrire */}
           {article.link ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -373,6 +532,20 @@ function ArticleCard({ article }: { article: Article }) {
                 </button>
               </TooltipTrigger>
               <TooltipContent>{copied ? t(lang, "linkCopied") : t(lang, "copyLink")}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {article.link ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={`absolute right-12 top-2 rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity ${hasHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWrite(); }}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t(lang, "writeAbout")}</TooltipContent>
             </Tooltip>
           ) : null}
           {/* Contrôles lecteur et audio supprimés */}
@@ -396,7 +569,7 @@ function ArticleCard({ article }: { article: Article }) {
   );
 }
 
-function FeaturedArticleCard({ article, onOpenVideo }: { article: Article; onOpenVideo: () => void }) {
+function FeaturedArticleCard({ article, onOpenVideo, onWrite }: { article: Article; onOpenVideo: () => void; onWrite: () => void }) {
   const localIsYouTubeUrl = (url?: string) => {
     try {
       if (!url) return false;
@@ -477,7 +650,7 @@ function FeaturedArticleCard({ article, onOpenVideo }: { article: Article; onOpe
           style={{ background: overlayCss || "linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))" }}
           aria-hidden="true"
         />
-        {/* Bouton copier lien */}
+        {/* Boutons copier lien + écrire */}
         {article.link ? (
           <button
             type="button"
@@ -486,6 +659,16 @@ function FeaturedArticleCard({ article, onOpenVideo }: { article: Article; onOpe
             onClick={copyLink}
           >
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          </button>
+        ) : null}
+        {article.link ? (
+          <button
+            type="button"
+            className="absolute right-12 top-3 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+            title={t(lang, "writeAbout")}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWrite(); }}
+          >
+            <Pencil className="w-4 h-4" />
           </button>
         ) : null}
         <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-[3]">

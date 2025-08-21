@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Settings2 } from "lucide-react";
+import { Loader2, Image as ImageIcon, RefreshCcw, Trash2, LogIn, Settings2, Pencil } from "lucide-react";
 import { useLang, t } from "@/lib/i18n";
 import { format } from "date-fns";
 import { fr as frLocale, enUS } from "date-fns/locale";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 
 export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
@@ -46,6 +47,14 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
   const fillingImagesRef = useRef(false);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const prevThemeRef = useRef<string | undefined>(undefined);
+  // Écriture X
+  const [writeOpen, setWriteOpen] = useState<boolean>(false);
+  const [writingItem, setWritingItem] = useState<{ title: string; link: string | null; summary?: string } | null>(null);
+  const [xStyle, setXStyle] = useState<string>(() => {
+    try { return localStorage.getItem("flux:xpost:style") || "casual"; } catch { return "casual"; }
+  });
+  const [postText, setPostText] = useState<string>("");
+  const [generatingPost, setGeneratingPost] = useState<boolean>(false);
   // Suppression audio/IA: états retirés
   useEffect(() => {
     (async () => {
@@ -111,6 +120,99 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
     } catch {
       return null;
     }
+  }
+
+  function openWriteModal(item: { title: string; link: string | null; summary?: string }) {
+    setWritingItem(item);
+    setPostText("");
+    setWriteOpen(true);
+  }
+
+  function styleLabel(style: string): string {
+    switch (style) {
+      case "casual": return t(lang, "styleCasual");
+      case "concise": return t(lang, "styleConcise");
+      case "journalistic": return t(lang, "styleJournalistic");
+      case "analytical": return t(lang, "styleAnalytical");
+      case "enthusiastic": return t(lang, "styleEnthusiastic");
+      case "technical": return t(lang, "styleTechnical");
+      case "humorous": return t(lang, "styleHumorous");
+      case "formal": return t(lang, "styleFormal");
+      case "very_personal": return t(lang, "styleVeryPersonal");
+      default: return style;
+    }
+  }
+
+  async function fetchArticlePlainText(url?: string | null): Promise<string> {
+    if (!url) return "";
+    try {
+      const controller = new AbortController();
+      const t: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch("/api/article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      if (!res.ok) return "";
+      const j = (await res.json()) as { contentHtml?: string };
+      const html = j?.contentHtml || "";
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      const text = div.textContent || div.innerText || "";
+      return text.replace(/\s+/g, " ").trim();
+    } catch {
+      return "";
+    }
+  }
+
+  async function handleGeneratePost() {
+    if (!writingItem) return;
+    const aiKey = (() => { try { return localStorage.getItem("flux:ai:openai") || ""; } catch { return ""; } })();
+    if (!aiKey) { toast.error(t(lang, "openAiMissing")); return; }
+    setGeneratingPost(true);
+    try {
+      let summary = writingItem.summary || "";
+      const fullText = await fetchArticlePlainText(writingItem.link);
+      if (fullText) summary = fullText.slice(0, 1000);
+      const res = await fetch("/api/ai/generate-x-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: writingItem.title,
+          summary,
+          url: writingItem.link || "",
+          lang,
+          apiKey: aiKey,
+          style: xStyle,
+        }),
+      });
+      const j = (await res.json()) as { text?: string; error?: string };
+      if (!res.ok || !j?.text) throw new Error(j?.error || t(lang, "serverGenError"));
+      setPostText(j.text);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t(lang, "serverGenError"));
+    } finally {
+      setGeneratingPost(false);
+    }
+  }
+
+  async function handleCopyPost() {
+    try {
+      await navigator.clipboard.writeText(postText);
+      toast.success(t(lang, "postCopied"));
+    } catch {
+      toast.error(t(lang, "clipboardError"));
+    }
+  }
+
+  async function handlePostOnX() {
+    await handleCopyPost();
+    try {
+      const url = `https://x.com/intent/tweet?text=${encodeURIComponent(postText)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {}
   }
 
   function getFavicon(url?: string | null): string | null {
@@ -1051,6 +1153,17 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
                       </button>
                     ) : null}
+                    {it.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-12 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
+                        title={t(lang, "writeAbout")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWriteModal({ title: it.title, link: it.link || null, summary: it.summary }); }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    ) : null}
                   </div>
                   <div className="px-3 py-2 space-y-1 flex-1 flex flex-col overflow-hidden">
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -1114,6 +1227,61 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
           </div>
         ) : null}
 
+        {/* Modale d'écriture X */}
+        <Dialog open={writeOpen} onOpenChange={(o) => { setWriteOpen(o); if (!o) { setWritingItem(null); setPostText(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t(lang, "writeAbout")}</DialogTitle>
+            </DialogHeader>
+            {writingItem ? (
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground line-clamp-2">{writingItem.title}</div>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">{t(lang, "writingStyleLabel")}: {styleLabel(xStyle)}</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {[
+                        "casual",
+                        "concise",
+                        "journalistic",
+                        "analytical",
+                        "enthusiastic",
+                        "technical",
+                        "humorous",
+                        "formal",
+                        "very_personal",
+                      ].map((s) => (
+                        <DropdownMenuItem key={s} onSelect={() => { setXStyle(s); try { localStorage.setItem("flux:xpost:style", s); } catch {} }}>
+                          {styleLabel(s)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button size="sm" onClick={() => void handleGeneratePost()} disabled={generatingPost}>
+                    {generatingPost ? t(lang, "generatingPost") : t(lang, "generatePost")}
+                  </Button>
+                </div>
+                <div>
+                  <textarea
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    placeholder={t(lang, "generatePost")}
+                    className="w-full min-h-[160px] rounded-md border p-3 text-sm bg-transparent outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                  />
+                </div>
+                <DialogFooter>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => void handleCopyPost()} disabled={!postText}>{t(lang, "copyPost")}</Button>
+                    <Button onClick={() => void handlePostOnX()} disabled={!postText}>{t(lang, "postOnX")}</Button>
+                  </div>
+                </DialogFooter>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
         {/* 2ème ligne de 3 articles (ou skeleton) */}
         {generating ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
@@ -1146,6 +1314,17 @@ export function Overview({ isMobile = false }: { isMobile?: boolean } = {}) {
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void copyLinkToClipboard(it.link); }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8 7a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1a1 1 0 1 1 0-2h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v1a1 1 0 1 1-2 0V7z"/><path d="M4 11a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6zm3-1a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H7z"/></svg>
+                      </button>
+                    ) : null}
+                    {it.link ? (
+                      <button
+                        type="button"
+                        className="absolute right-12 top-2 z-[4] rounded-full bg-black/60 text-white p-2 backdrop-blur-sm hover:bg-black/70 transition-opacity"
+                        style={{ opacity: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(hover: hover)').matches) ? 0 : 1 }}
+                        title={t(lang, "writeAbout")}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openWriteModal({ title: it.title, link: it.link || null, summary: it.summary }); }}
+                      >
+                        <Pencil className="w-4 h-4" />
                       </button>
                     ) : null}
                   </div>
